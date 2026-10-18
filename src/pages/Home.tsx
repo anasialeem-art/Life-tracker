@@ -144,7 +144,7 @@ function MedsCard({ today }: { today: string }) {
             {done ? <CheckIcon size={22} strokeWidth={3} className="text-accent" /> : <span className="text-[14px] font-bold tabular">{sum.taken}/{sum.due}</span>}
           </Ring>
           <div className="min-w-0 flex-1">
-            <p className="text-[18px] font-semibold">{sum.taken} of {sum.due} doses taken</p>
+            <p className="text-[18px] font-semibold">{sum.taken} of {sum.due} {sum.due === 1 ? 'dose' : 'doses'} taken</p>
             <p className="truncate text-[14px] text-muted">
               {done ? 'All done for today' : sum.remaining.map((r) => (r.slots.length > 1 ? `${r.name} ×${r.slots.length}` : r.name)).join(' · ')}
             </p>

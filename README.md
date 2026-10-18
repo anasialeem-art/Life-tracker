@@ -5,7 +5,7 @@ Offline personal tracker PWA for meds, prayer, to-dos and fitness. The full spec
 ## What's in it
 
 - **Home**: read-only overview of the day (next prayer with countdown, doses, to-dos, training, nutrition rings), backup reminder, More button.
-- **Meds**: scheduled meds (daily / every other day / custom days, several doses a day) as dose checkboxes, as-needed meds with timed logs, missed-day calendar. Edits apply from today on; removing archives.
+- **Meds**: scheduled meds (daily / every other day / picked days / repeating cycles like "1 week daily, 2 weeks every other day, 3 weeks break", several doses a day) as dose checkboxes, as-needed meds with timed logs, missed-day calendar. Edits apply from today on; removing archives.
 - **Prayer**: offline times (adhan), Fajr-based prayer day, On time / Late / Qada + Jama'ah per prayer, Jumu'ah on Fridays, sunnah/witr and adhkar, automatic qada counter, streak calendar, Qibla compass, Tarteel button.
 - **To-Do**: lists with color and icon, quick add, subtasks, due date and time, priority, repeats, All / Today / Upcoming views, focus card that pops a list out over a blurred page.
 - **Fitness**: split days in weekday or cycle mode, Trained button and streak, "Change today", nutrition quick-add vs. targets, bodyweight trend chart, Lyfta CSV stats (weekly volume, PRs), Open Lyfta button.

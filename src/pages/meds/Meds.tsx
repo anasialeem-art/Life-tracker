@@ -1,9 +1,10 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useState } from 'react'
 import { db, uid, type Med, type MedLog } from '../../lib/db'
-import { type DayKey } from '../../lib/day'
+import { addDays, type DayKey } from '../../lib/day'
 import { momentOn, useSelectedDay } from '../../lib/hooks'
-import { describeSchedule, dosesDue, isVisibleOn, missedDays, scheduleOn } from '../../lib/meds'
+import { describeCycleDay, describeSchedule, dosesDue, isVisibleOn, missedDays, nextDoseDay, scheduleOn } from '../../lib/meds'
+import { dueLabel } from '../../lib/todo'
 import { fmtTime } from '../../lib/prayer'
 import { useToday } from '../../lib/useToday'
 import { DayNav, FutureNotice } from '../../components/DayNav'
@@ -32,6 +33,12 @@ export function Meds() {
   const all = meds ?? []
   const scheduled = all.filter((m) => m.kind === 'scheduled' && dosesDue(m, day) > 0)
   const asNeeded = all.filter((m) => m.kind === 'asneeded' && asNeededVisible(m, day))
+  // Cycle meds on a break or off day: shown quietly so they don't look forgotten.
+  const resting = all.filter((m) => {
+    const s = scheduleOn(m, day)
+    return m.kind === 'scheduled' && s?.pattern === 'cycle' && isVisibleOn(m, day) && dosesDue(m, day) === 0 &&
+      day >= s.startDate && (!s.endDate || day <= s.endDate)
+  })
   const taken = new Set(logs.filter((l) => l.slot >= 0).map((l) => `${l.medId}|${l.slot}`))
   const due = scheduled.reduce((n, m) => n + dosesDue(m, day), 0)
   const done = scheduled.reduce((n, m) => n + Array.from({ length: dosesDue(m, day) }, (_, s) => taken.has(`${m.id}|${s}`)).filter(Boolean).length, 0)
@@ -70,7 +77,7 @@ export function Meds() {
                   {done === due ? <CheckIcon size={24} strokeWidth={3} className="text-accent" /> : <span className="text-[15px] font-bold tabular">{done}/{due}</span>}
                 </Ring>
                 <div className="min-w-0">
-                  <p className="text-[17px] font-semibold">{done === due ? 'All doses taken' : `${done} of ${due} doses taken`}</p>
+                  <p className="text-[17px] font-semibold">{done === due ? (due === 1 ? 'Dose taken' : 'All doses taken') : `${done} of ${due} ${due === 1 ? 'dose' : 'doses'} taken`}</p>
                   <p className="text-[14px] text-muted">
                     {done === due ? 'Nothing left for this day.' : ended ? `${due - done} missed` : `${due - done} still to take`}
                   </p>
@@ -78,7 +85,7 @@ export function Meds() {
               </Card>
             )}
 
-            {scheduled.length === 0 && meds && (
+            {scheduled.length === 0 && resting.length === 0 && meds && (
               <Card><EmptyState title="Nothing scheduled">No scheduled doses on this day.</EmptyState></Card>
             )}
 
@@ -115,6 +122,26 @@ export function Meds() {
                       )
                     })}
                   </div>
+                </Card>
+              )
+            })}
+
+            {resting.length > 0 && <SectionLabel>Not today</SectionLabel>}
+            {resting.map((med) => {
+              const next = nextDoseDay(med, addDays(day, 1))
+              return (
+                <Card key={med.id} onClick={() => setEditing(med)} className="flex items-center gap-3 py-3">
+                  <IconBadge color="var(--muted)"><PillIcon size={20} /></IconBadge>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-[16px] font-semibold">{med.name}</p>
+                    <p className="text-[13px] text-muted">{describeCycleDay(scheduleOn(med, day)!, day)}</p>
+                  </div>
+                  {next && (
+                    <div className="text-right">
+                      <p className="text-[12px] text-muted">Next dose</p>
+                      <p className="text-[14px] font-semibold text-accent">{dueLabel(next, today)}</p>
+                    </div>
+                  )}
                 </Card>
               )
             })}

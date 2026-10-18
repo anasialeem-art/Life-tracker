@@ -14,7 +14,14 @@ export interface MetaRow { key: string; value: unknown }
 
 // ---- Meds -------------------------------------------------------------------
 
-export type MedPattern = 'daily' | 'alternate' | 'custom'
+export type MedPattern = 'daily' | 'alternate' | 'custom' | 'cycle'
+
+/** One block of a repeating cycle, e.g. "2 weeks, every other day". */
+export interface CyclePhase {
+  length: number
+  unit: 'days' | 'weeks'
+  mode: 'daily' | 'alternate' | 'off'
+}
 
 /** One version of a med's schedule. Edits append a version effective from today, so past days keep their old rules. */
 export interface MedSchedule {
@@ -24,6 +31,8 @@ export interface MedSchedule {
   dosesPerDay: number
   startDate: DayKey
   endDate: DayKey | null
+  /** Pattern "cycle" only: phases repeated back to back from startDate until endDate. */
+  cycle?: CyclePhase[]
 }
 
 export interface Med {

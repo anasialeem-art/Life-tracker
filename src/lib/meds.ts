@@ -1,5 +1,5 @@
-import type { Med, MedLog, MedSchedule } from './db'
-import { daysBetween, type DayKey } from './day'
+import type { CyclePhase, Med, MedLog, MedSchedule } from './db'
+import { addDays, daysBetween, type DayKey } from './day'
 
 /** The schedule version in force on a day (the latest one effective on or before it). */
 export function scheduleOn(med: Med, day: DayKey): MedSchedule | null {
@@ -22,7 +22,68 @@ export function dosesDue(med: Med, day: DayKey): number {
   if (day < s.startDate) return 0
   if (s.endDate && day > s.endDate) return 0
   if (s.pattern === 'alternate' && daysBetween(s.startDate, day) % 2 !== 0) return 0
+  if (s.pattern === 'cycle') {
+    const pos = cyclePosition(s.cycle ?? [], daysBetween(s.startDate, day))
+    if (!pos || pos.phase.mode === 'off') return 0
+    if (pos.phase.mode === 'alternate' && pos.dayInPhase % 2 !== 0) return 0
+  }
   return s.dosesPerDay
+}
+
+// ---- Cycles -------------------------------------------------------------------
+
+export const phaseDays = (p: CyclePhase) => p.length * (p.unit === 'weeks' ? 7 : 1)
+export const cycleDays = (phases: CyclePhase[]) => phases.reduce((n, p) => n + phaseDays(p), 0)
+
+export interface CyclePosition {
+  /** Which repetition of the cycle (0-based). */
+  round: number
+  phaseIndex: number
+  phase: CyclePhase
+  /** Day within the current phase (0-based); every-other-day phases dose on even days. */
+  dayInPhase: number
+  /** Day within the whole cycle (0-based). */
+  dayInCycle: number
+}
+
+/** Where `offset` days after the start falls in a repeating cycle. */
+export function cyclePosition(phases: CyclePhase[], offset: number): CyclePosition | null {
+  const total = cycleDays(phases)
+  if (offset < 0 || total <= 0) return null
+  const dayInCycle = offset % total
+  let rest = dayInCycle
+  for (let i = 0; i < phases.length; i++) {
+    const len = phaseDays(phases[i])
+    if (rest < len) return { round: Math.floor(offset / total), phaseIndex: i, phase: phases[i], dayInPhase: rest, dayInCycle }
+    rest -= len
+  }
+  return null
+}
+
+/** The next day on or after `from` with a dose due, within a year. */
+export function nextDoseDay(med: Med, from: DayKey): DayKey | null {
+  for (let i = 0; i < 366; i++) {
+    const d = addDays(from, i)
+    if (dosesDue(med, d) > 0) return d
+  }
+  return null
+}
+
+const MODE_LABEL: Record<CyclePhase['mode'], string> = { daily: 'daily', alternate: 'every other day', off: 'break' }
+
+export function describePhase(p: CyclePhase): string {
+  const unit = p.unit === 'weeks' ? (p.length === 1 ? 'week' : 'weeks') : p.length === 1 ? 'day' : 'days'
+  return `${p.length} ${unit} ${MODE_LABEL[p.mode]}`
+}
+
+/** "Week 2 of 6 · every other day" for a cycle med on a given day. */
+export function describeCycleDay(s: MedSchedule, day: DayKey): string | null {
+  if (s.pattern !== 'cycle' || !s.cycle?.length) return null
+  const pos = cyclePosition(s.cycle, daysBetween(s.startDate, day))
+  if (!pos) return null
+  const total = cycleDays(s.cycle)
+  const where = total % 7 === 0 ? `Week ${Math.floor(pos.dayInCycle / 7) + 1} of ${total / 7}` : `Day ${pos.dayInCycle + 1} of ${total}`
+  return `${where} · ${MODE_LABEL[pos.phase.mode]}`
 }
 
 /** Days with at least one due scheduled slot left unchecked. */
@@ -69,8 +130,10 @@ export function describeSchedule(med: Med, day: DayKey): string {
   if (med.kind === 'asneeded') return 'As needed'
   const s = scheduleOn(med, day)
   if (!s) return ''
+  const doses = `${s.dosesPerDay} ${s.dosesPerDay === 1 ? 'dose' : 'doses'}`
+  if (s.pattern === 'cycle') return `Cycle · ${describeCycleDay(s, day) ?? ''}${s.dosesPerDay > 1 ? ` · ${doses}` : ''}`
   const pattern = s.pattern === 'daily' ? 'Daily' : s.pattern === 'alternate' ? 'Every other day' : 'Selected days'
-  return `${pattern} · ${s.dosesPerDay} ${s.dosesPerDay === 1 ? 'dose' : 'doses'}`
+  return `${pattern} · ${doses}`
 }
 
 /**
@@ -86,5 +149,6 @@ export function withScheduleFrom(med: Med, next: Omit<MedSchedule, 'effectiveFro
 
 function sameSchedule(a: Omit<MedSchedule, 'effectiveFrom'>, b: Omit<MedSchedule, 'effectiveFrom'>) {
   return a.pattern === b.pattern && a.dosesPerDay === b.dosesPerDay && a.startDate === b.startDate &&
-    a.endDate === b.endDate && a.customDays.join() === b.customDays.join()
+    a.endDate === b.endDate && a.customDays.join() === b.customDays.join() &&
+    JSON.stringify(a.cycle ?? null) === JSON.stringify(b.cycle ?? null)
 }

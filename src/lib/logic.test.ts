@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { Med, MedLog, PrayerLog, SplitDay, TrainingDay } from './db'
 import { anchorsAfterReset, parseLyftaCsv, personalRecords, plannedSplit, splitFor, trainingStreak, weeklyVolume } from './fitness'
-import { dosesDue, missedDays, summarizeDay, withScheduleFrom } from './meds'
+import { describeSchedule, dosesDue, missedDays, nextDoseDay, summarizeDay, withScheduleFrom } from './meds'
 import { missedPrayerDays, prayerDayAt, prayerStreak, qadaCount, timesFor, type PrayerConfig } from './prayer'
 import { isOverdue, nextOccurrence } from './todo'
 
@@ -22,6 +22,29 @@ describe('meds', () => {
     const custom = med({ schedules: [{ ...m.schedules[0], pattern: 'custom', customDays: ['2026-10-05'] }] })
     expect(dosesDue(custom, '2026-10-05')).toBe(2)
     expect(dosesDue(custom, '2026-10-06')).toBe(0)
+  })
+
+  it('follows a repeating cycle: 1 week daily, 2 weeks every other day, 3 weeks break', () => {
+    const m = med({
+      schedules: [{
+        effectiveFrom: '0000-01-01', pattern: 'cycle', customDays: [], dosesPerDay: 1, startDate: '2026-10-05', endDate: '2027-01-31',
+        cycle: [{ length: 1, unit: 'weeks', mode: 'daily' }, { length: 2, unit: 'weeks', mode: 'alternate' }, { length: 3, unit: 'weeks', mode: 'off' }],
+      }],
+    })
+    const due = (d: string) => dosesDue(m, d)
+    // Week 1 (5–11 Oct): every day
+    expect(['2026-10-05', '2026-10-08', '2026-10-11'].map(due)).toEqual([1, 1, 1])
+    // Weeks 2–3 (12–25 Oct): alternate, starting on the 12th
+    expect(['2026-10-12', '2026-10-13', '2026-10-14', '2026-10-25'].map(due)).toEqual([1, 0, 1, 0])
+    // Weeks 4–6 (26 Oct – 15 Nov): break
+    expect(['2026-10-26', '2026-11-05', '2026-11-15'].map(due)).toEqual([0, 0, 0])
+    // Repeats: 16 Nov starts the second round
+    expect(due('2026-11-16')).toBe(1)
+    expect(nextDoseDay(m, '2026-10-26')).toBe('2026-11-16')
+    expect(describeSchedule(m, '2026-10-13')).toBe('Cycle · Week 2 of 6 · every other day')
+    // Stops after the "repeat until" date
+    expect(due('2027-02-01')).toBe(0)
+    expect(due('2026-10-04')).toBe(0)
   })
 
   it('applies schedule edits only from today on', () => {
