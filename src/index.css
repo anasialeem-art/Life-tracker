@@ -1,0 +1,109 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Semantic color tokens. Components use bg-bg, bg-surface, text-muted, etc. */
+:root {
+  --bg: #f5f5f7;
+  --surface: #ffffff;
+  --surface-2: #ececf0;
+  --surface-raised: #ffffff;
+  --border: rgb(0 0 0 / 0.08);
+  --text: #111114;
+  --muted: #6e6e76;
+  --accent: #0a84ff;
+  --accent-soft: rgb(10 132 255 / 0.12);
+  --danger: #e5383b;
+  --danger-soft: rgb(229 56 59 / 0.12);
+  --success: #23a55a;
+  --tabbar: rgb(255 255 255 / 0.82);
+  color-scheme: light;
+}
+
+.dark {
+  --bg: #000000;
+  --surface: #16161a;
+  --surface-2: #232328;
+  --surface-raised: #3a3a41;
+  --border: rgb(255 255 255 / 0.09);
+  --text: #f4f4f6;
+  --muted: #9a9aa3;
+  --accent: #3d9bff;
+  --accent-soft: rgb(61 155 255 / 0.18);
+  --danger: #ff5a5f;
+  --danger-soft: rgb(255 90 95 / 0.18);
+  --success: #34c46e;
+  --tabbar: rgb(22 22 26 / 0.82);
+  color-scheme: dark;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-raised: var(--surface-raised);
+  --color-line: var(--border);
+  --color-text: var(--text);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-success: var(--success);
+  --color-tabbar: var(--tabbar);
+  --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+@layer base {
+  html, body, #root {
+    height: 100%;
+  }
+  html {
+    -webkit-text-size-adjust: 100%;
+    -webkit-tap-highlight-color: transparent;
+  }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-sans);
+    overscroll-behavior-y: none;
+    /* Blocks double-tap zoom; pinch zoom is off via the viewport meta. */
+    touch-action: manipulation;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  input, textarea, [contenteditable] {
+    -webkit-user-select: text;
+    user-select: text;
+  }
+  button {
+    cursor: pointer;
+  }
+}
+
+@utility pt-safe { padding-top: env(safe-area-inset-top); }
+@utility pb-safe { padding-bottom: env(safe-area-inset-bottom); }
+@utility pl-safe { padding-left: env(safe-area-inset-left); }
+@utility pr-safe { padding-right: env(safe-area-inset-right); }
+
+/* Pressed feedback in place of hover. */
+@utility pressable {
+  transition: transform 120ms ease, opacity 120ms ease, background-color 150ms ease;
+  &:active { transform: scale(0.97); opacity: 0.85; }
+}
+
+@keyframes page-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes sheet-up { from { transform: translateY(100%); } to { transform: none; } }
+
+@utility animate-page-in { animation: page-in 220ms cubic-bezier(.2,.8,.2,1) both; }
+@utility animate-fade-in { animation: fade-in 200ms ease both; }
+@utility animate-sheet-up { animation: sheet-up 320ms cubic-bezier(.2,.9,.25,1) both; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 1ms !important; transition-duration: 1ms !important; }
+}
