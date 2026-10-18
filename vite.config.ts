@@ -6,6 +6,8 @@ import { VitePWA } from 'vite-plugin-pwa'
 // Relative base so the build works from any static host path (e.g. GitHub Pages /life-tracker/).
 export default defineConfig({
   base: './',
+  // One precached bundle is fine: everything is cached on the phone after first load.
+  build: { chunkSizeWarningLimit: 800 },
   plugins: [
     react(),
     tailwindcss(),

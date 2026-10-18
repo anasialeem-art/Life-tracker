@@ -2,12 +2,12 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { useRef, useState } from 'react'
 import {
   BACKUP_REMINDER_DAYS, canShareFiles, exportBackup, readBackupFile, restoreBackup, summarize, type BackupFile,
-} from '../lib/backup'
-import { getMeta } from '../lib/db'
-import { DownloadIcon, ShareIcon, UploadIcon } from '../components/Icons'
-import { Sheet } from '../components/Sheet'
-import { TopBar } from '../components/TopBar'
-import { Button, Card, Page, SectionLabel } from '../components/ui'
+} from '../../lib/backup'
+import { getMeta } from '../../lib/db'
+import { ArchiveIcon, DownloadIcon, ShareIcon, UploadIcon } from '../../components/Icons'
+import { Sheet } from '../../components/Sheet'
+import { TopBar } from '../../components/TopBar'
+import { Button, Card, Page, SectionLabel } from '../../components/ui'
 
 const fmt = (d: Date) => d.toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
 
@@ -18,6 +18,7 @@ export function Backup() {
   const [busy, setBusy] = useState(false)
   const fileInput = useRef<HTMLInputElement>(null)
   const share = canShareFiles()
+  const days = lastBackupAt ? Math.floor((Date.now() - lastBackupAt) / 86_400_000) : null
 
   const runExport = async (mode: 'share' | 'download') => {
     setMessage(null)
@@ -56,40 +57,45 @@ export function Backup() {
   }
 
   const summary = pending && summarize(pending)
+  const stale = days === null || days >= BACKUP_REMINDER_DAYS
 
   return (
     <>
       <TopBar title="Backup" backTo="/more" />
       <Page>
-        <Card>
-          <p className="text-sm text-muted">Last backup</p>
-          <p className="text-[17px] font-semibold">{lastBackupAt ? fmt(new Date(lastBackupAt)) : 'Never'}</p>
-          <p className="mt-1 text-xs text-muted">You’ll get a reminder on Home after {BACKUP_REMINDER_DAYS} days without one.</p>
+        <Card className="flex items-center gap-4">
+          <span className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl ${stale ? 'bg-warning-soft text-warning' : 'bg-success-soft text-success'}`}><ArchiveIcon size={24} /></span>
+          <div>
+            <p className="text-[13px] text-muted">Last backup</p>
+            <p className="text-[18px] font-semibold">{lastBackupAt ? fmt(new Date(lastBackupAt)) : 'Never'}</p>
+            <p className="text-[13px] text-muted">{days === null ? 'Your data only lives on this phone.' : days === 0 ? 'Today' : `${days} day${days === 1 ? '' : 's'} ago`}</p>
+          </div>
         </Card>
 
         <SectionLabel>Export</SectionLabel>
         <Card className="flex flex-col gap-2">
-          <p className="pb-1 text-sm text-muted">Saves all your data as one JSON file. Save it to Drive or send it to yourself.</p>
+          <p className="pb-1 text-[14px] text-muted">Saves everything as one JSON file. Save it to Drive or send it to yourself.</p>
           {share && <Button onClick={() => runExport('share')}><ShareIcon size={20} /> Share backup file</Button>}
           <Button variant={share ? 'secondary' : 'primary'} onClick={() => runExport('download')}><DownloadIcon size={20} /> Download backup file</Button>
         </Card>
 
         <SectionLabel>Restore</SectionLabel>
         <Card className="flex flex-col gap-2">
-          <p className="pb-1 text-sm text-muted">Replaces everything in the app with the contents of a backup file.</p>
+          <p className="pb-1 text-[14px] text-muted">Replaces everything in the app with the contents of a backup file.</p>
           <Button variant="secondary" onClick={() => fileInput.current?.click()}><UploadIcon size={20} /> Choose backup file</Button>
           <input ref={fileInput} type="file" accept="application/json,.json" className="hidden" onChange={(e) => onFile(e.target.files?.[0])} />
         </Card>
 
         {message && (
-          <p role="status" className={`animate-fade-in px-1 text-sm font-medium ${message.error ? 'text-danger' : 'text-success'}`}>{message.text}</p>
+          <p role="status" className={`animate-fade-in px-1 text-center text-[14px] font-medium ${message.error ? 'text-danger' : 'text-success'}`}>{message.text}</p>
         )}
+        <p className="px-4 text-center text-[12px] text-muted">A reminder appears on Home after {BACKUP_REMINDER_DAYS} days without a backup.</p>
       </Page>
 
       <Sheet open={!!pending} onClose={() => setPending(null)} title="Restore this backup?">
         {summary && (
-          <div className="flex flex-col gap-4">
-            <p className="text-[15px] text-muted">
+          <div className="flex flex-col gap-3">
+            <p className="pb-2 text-center text-[15px] leading-relaxed text-muted">
               Exported {fmt(summary.exportedAt)} · {summary.rows} records.
               <br />All current data in the app will be replaced. This can’t be undone.
             </p>

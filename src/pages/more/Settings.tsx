@@ -1,0 +1,150 @@
+import { useEffect, useState } from 'react'
+import { HIGH_LAT_RULES, METHODS } from '../../lib/prayer'
+import { navigate } from '../../lib/router'
+import { setSetting, useSettings, type Settings as SettingsShape } from '../../lib/settings'
+import { isStandalone, useOnline, usePersisted } from '../../lib/storage'
+import { useToday } from '../../lib/useToday'
+import {
+  ArchiveIcon, CheckIcon, CheckListIcon, ChevronRight, CompassIcon, DumbbellIcon, FlameIcon, HabitIcon, LocationIcon, MoonIcon,
+  SunIcon, WalletIcon,
+} from '../../components/Icons'
+import { Sheet } from '../../components/Sheet'
+import { TopBar } from '../../components/TopBar'
+import { Group, Page, Row, SectionLabel, Segmented } from '../../components/ui'
+import { SplitEditor } from '../fitness/SplitEditor'
+import { LocationSheet } from '../prayer/LocationSheet'
+import { ListsSheet } from '../todo/ListsSheet'
+import { CategoriesSheet } from './Money'
+
+const CURRENCIES = ['€', '$', '£', 'CHF', 'PKR', 'Rs', 'AED', 'SAR', 'TRY']
+
+function Picker<T extends string>({ open, onClose, title, options, value, onPick }: {
+  open: boolean
+  onClose: () => void
+  title: string
+  options: { key: T; label: string }[]
+  value: T
+  onPick: (v: T) => void
+}) {
+  return (
+    <Sheet open={open} onClose={onClose} title={title}>
+      <div className="flex flex-col gap-1.5">
+        {options.map((o) => (
+          <button key={o.key} type="button" onClick={() => { onPick(o.key); onClose() }}
+            className={`pressable flex min-h-[52px] items-center justify-between rounded-2xl px-4 text-left text-[16px] ${o.key === value ? 'bg-accent-soft font-semibold text-accent' : 'bg-surface-2'}`}>
+            {o.label}
+            {o.key === value && <CheckIcon size={20} strokeWidth={2.8} />}
+          </button>
+        ))}
+      </div>
+    </Sheet>
+  )
+}
+
+/** Inline number field that saves on blur/enter. */
+function NumberRow({ icon, label, unit, value, onSave }: { icon: React.ReactNode; label: string; unit: string; value: number; onSave: (n: number) => void }) {
+  const [text, setText] = useState(String(value))
+  useEffect(() => setText(String(value)), [value])
+  const commit = () => {
+    const n = parseInt(text, 10)
+    if (n > 0 && n !== value) onSave(n)
+    else setText(String(value))
+  }
+  return (
+    <Row icon={icon} label={label}>
+      <span className="flex items-center gap-1.5">
+        <input value={text} inputMode="numeric" onChange={(e) => setText(e.target.value.replace(/\D/g, ''))} onBlur={commit}
+          onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()} aria-label={label}
+          className="h-10 w-20 rounded-xl bg-surface-2 text-center text-[16px] font-semibold outline-none tabular focus:ring-2 focus:ring-accent/40" />
+        <span className="w-8 text-[14px] text-muted">{unit}</span>
+      </span>
+    </Row>
+  )
+}
+
+export function Settings() {
+  const s = useSettings()
+  const today = useToday()
+  const persisted = usePersisted()
+  const online = useOnline()
+  const offlineReady = !!navigator.serviceWorker?.controller
+  const [open, setOpen] = useState<null | 'location' | 'method' | 'highlat' | 'split' | 'lists' | 'categories'>(null)
+  const close = () => setOpen(null)
+  if (!s) return null
+
+  return (
+    <>
+      <TopBar title="Settings" backTo="/more" />
+      <Page>
+        <SectionLabel>Appearance</SectionLabel>
+        <Group className="p-3">
+          <Segmented<SettingsShape['theme']> value={s.theme} onChange={(v) => setSetting('theme', v)} options={[
+            { value: 'system', label: 'System' }, { value: 'light', label: 'Light' }, { value: 'dark', label: 'Dark' },
+          ]} />
+        </Group>
+
+        <SectionLabel>Prayer</SectionLabel>
+        <Group>
+          <Row icon={<LocationIcon size={18} />} label="Location" detail={s.prayerLocation?.name ?? 'Not set'} onClick={() => setOpen('location')}><ChevronRight size={18} className="text-faint" /></Row>
+          <Row icon={<CompassIcon size={18} />} label="Calculation" detail={METHODS.find((m) => m.key === s.prayerMethod)?.label} onClick={() => setOpen('method')}><ChevronRight size={18} className="text-faint" /></Row>
+          <Row icon={<SunIcon size={18} />} label="Asr">
+            <div className="w-40"><Segmented size="sm" value={s.asrMethod} onChange={(v) => setSetting('asrMethod', v)} options={[{ value: 'shafi', label: 'Shafi‘i' }, { value: 'hanafi', label: 'Hanafi' }]} /></div>
+          </Row>
+          <Row icon={<MoonIcon size={18} />} label="High latitude" detail={HIGH_LAT_RULES.find((r) => r.key === s.highLatRule)?.label} onClick={() => setOpen('highlat')}><ChevronRight size={18} className="text-faint" /></Row>
+        </Group>
+        <p className="px-4 text-[12px] leading-snug text-muted">The high-latitude rule matters in German summers, when the sky never gets fully dark and Fajr/Isha need an approximation.</p>
+
+        <SectionLabel>Fitness</SectionLabel>
+        <Group>
+          <NumberRow icon={<FlameIcon size={18} />} label="Calorie target" unit="kcal" value={s.kcalTarget} onSave={(n) => setSetting('kcalTarget', n)} />
+          <NumberRow icon={<DumbbellIcon size={18} />} label="Protein target" unit="g" value={s.proteinTarget} onSave={(n) => setSetting('proteinTarget', n)} />
+          <Row icon={<DumbbellIcon size={18} />} label="Split & mode" detail={s.splitMode === 'weekday' ? 'Weekdays' : 'Cycle'} onClick={() => setOpen('split')}><ChevronRight size={18} className="text-faint" /></Row>
+        </Group>
+
+        <SectionLabel>Lists & categories</SectionLabel>
+        <Group>
+          <Row icon={<CheckListIcon size={18} />} label="To-do lists" onClick={() => setOpen('lists')}><ChevronRight size={18} className="text-faint" /></Row>
+          <Row icon={<HabitIcon size={18} />} label="Habits" onClick={() => navigate('/more/habits')}><ChevronRight size={18} className="text-faint" /></Row>
+          <Row icon={<WalletIcon size={18} />} label="Money categories" onClick={() => setOpen('categories')}><ChevronRight size={18} className="text-faint" /></Row>
+          <Row icon={<WalletIcon size={18} />} label="Currency">
+            <select value={s.currency} onChange={(e) => setSetting('currency', e.target.value)} aria-label="Currency"
+              className="h-10 rounded-xl bg-surface-2 px-3 text-[16px] font-semibold outline-none">
+              {CURRENCIES.map((c) => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </Row>
+        </Group>
+
+        <SectionLabel>Data</SectionLabel>
+        <Group>
+          <Row icon={<ArchiveIcon size={18} />} label="Backup & restore" onClick={() => navigate('/more/backup')}><ChevronRight size={18} className="text-faint" /></Row>
+        </Group>
+
+        <SectionLabel>App status</SectionLabel>
+        <Group>
+          <Status label="Works offline" ok={offlineReady} value={offlineReady ? 'Ready' : 'Not yet cached'} />
+          <Status label="Persistent storage" ok={!!persisted} value={persisted == null ? '…' : persisted ? 'Granted' : 'Not granted'} />
+          <Status label="Installed app" ok={isStandalone()} value={isStandalone() ? 'Yes' : 'Browser tab'} />
+          <Status label="Network" ok value={online ? 'Online' : 'Offline'} />
+        </Group>
+        <p className="px-4 pt-2 text-center text-[12px] text-muted">Life Tracker · everything stays on this phone</p>
+      </Page>
+
+      <LocationSheet open={open === 'location'} onClose={close} />
+      <Picker open={open === 'method'} onClose={close} title="Calculation method" options={METHODS} value={s.prayerMethod} onPick={(v) => setSetting('prayerMethod', v)} />
+      <Picker open={open === 'highlat'} onClose={close} title="High-latitude rule" options={HIGH_LAT_RULES} value={s.highLatRule} onPick={(v) => setSetting('highLatRule', v)} />
+      <SplitEditor open={open === 'split'} onClose={close} today={today} />
+      <ListsSheet open={open === 'lists'} onClose={close} />
+      <CategoriesSheet open={open === 'categories'} onClose={close} />
+    </>
+  )
+}
+
+function Status({ label, value, ok }: { label: string; value: string; ok: boolean }) {
+  return (
+    <Row label={label}>
+      <span className={`flex items-center gap-1.5 text-[15px] font-medium ${ok ? 'text-success' : 'text-muted'}`}>
+        <span className={`h-2 w-2 rounded-full ${ok ? 'bg-success' : 'bg-faint'}`} />{value}
+      </span>
+    </Row>
+  )
+}

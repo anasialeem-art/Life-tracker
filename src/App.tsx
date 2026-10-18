@@ -5,27 +5,32 @@ import { useSetting } from './lib/settings'
 import { requestPersistentStorage } from './lib/storage'
 import { useApplyTheme } from './lib/theme'
 import { TabBar } from './components/TabBar'
+import { SectionContext } from './components/ui'
 import { UpdatePrompt } from './components/UpdatePrompt'
-import { Backup } from './pages/Backup'
 import { Home } from './pages/Home'
-import { More } from './pages/More'
-import { Placeholder } from './pages/Placeholder'
-import { Settings } from './pages/Settings'
+import { Fitness } from './pages/fitness/Fitness'
+import { Meds } from './pages/meds/Meds'
+import { Backup } from './pages/more/Backup'
+import { Habits } from './pages/more/Habits'
+import { Journal } from './pages/more/Journal'
+import { Money } from './pages/more/Money'
+import { More } from './pages/more/More'
+import { Settings } from './pages/more/Settings'
+import { Prayer } from './pages/prayer/Prayer'
+import { Todo } from './pages/todo/Todo'
 
-function route(path: string) {
-  switch (path) {
-    case '/meds': return <Placeholder title="Meds" step={2} withDayNav />
-    case '/prayer': return <Placeholder title="Prayer" step={3} />
-    case '/todo': return <Placeholder title="To-Do" step={4} withDayNav />
-    case '/fitness': return <Placeholder title="Fitness" step={5} withDayNav />
-    case '/more': return <More />
-    case '/more/habits': return <Placeholder title="Habits" step={6} withDayNav />
-    case '/more/money': return <Placeholder title="Money" step={6} />
-    case '/more/journal': return <Placeholder title="Journal" step={6} withDayNav />
-    case '/more/settings': return <Settings />
-    case '/more/backup': return <Backup />
-    default: return <Home />
-  }
+const ROUTES: Record<string, { sec: string; render: () => React.ReactNode }> = {
+  '/': { sec: 'home', render: () => <Home /> },
+  '/meds': { sec: 'meds', render: () => <Meds /> },
+  '/prayer': { sec: 'prayer', render: () => <Prayer /> },
+  '/todo': { sec: 'todo', render: () => <Todo /> },
+  '/fitness': { sec: 'fitness', render: () => <Fitness /> },
+  '/more': { sec: 'home', render: () => <More /> },
+  '/more/habits': { sec: 'habits', render: () => <Habits /> },
+  '/more/money': { sec: 'money', render: () => <Money /> },
+  '/more/journal': { sec: 'journal', render: () => <Journal /> },
+  '/more/settings': { sec: 'home', render: () => <Settings /> },
+  '/more/backup': { sec: 'home', render: () => <Backup /> },
 }
 
 export default function App() {
@@ -38,14 +43,18 @@ export default function App() {
     ensureFirstUse()
   }, [])
 
-  // Each tab keeps its own scroll position starting at the top.
+  // Each page starts scrolled to the top.
   useEffect(() => window.scrollTo(0, 0), [path])
 
+  const route = ROUTES[path] ?? ROUTES['/']
+
   return (
-    <div className="min-h-full pl-safe pr-safe pb-[calc(4rem+env(safe-area-inset-bottom))]">
-      <main key={path}>{route(path)}</main>
-      <TabBar path={path} />
-      <UpdatePrompt />
-    </div>
+    <SectionContext.Provider value={route.sec}>
+      <div data-sec={route.sec} className="min-h-dvh pl-safe pr-safe pb-[calc(4.5rem+env(safe-area-inset-bottom))]">
+        <main key={path} className="animate-page-in">{route.render()}</main>
+        <TabBar path={path} />
+        <UpdatePrompt />
+      </div>
+    </SectionContext.Provider>
   )
 }

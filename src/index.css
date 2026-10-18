@@ -2,39 +2,97 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
+/* Bundled so the app looks identical everywhere and needs no network. */
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url("./assets/fonts/inter-latin-ext-wght-normal.woff2") format("woff2-variations");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url("./assets/fonts/inter-latin-wght-normal.woff2") format("woff2-variations");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
 /* Semantic color tokens. Components use bg-bg, bg-surface, text-muted, etc. */
 :root {
-  --bg: #f5f5f7;
+  --bg: #f2f2f7;
   --surface: #ffffff;
-  --surface-2: #ececf0;
+  --surface-2: #eeeef3;
   --surface-raised: #ffffff;
-  --border: rgb(0 0 0 / 0.08);
-  --text: #111114;
-  --muted: #6e6e76;
-  --accent: #0a84ff;
-  --accent-soft: rgb(10 132 255 / 0.12);
+  --border: rgb(60 60 67 / 0.12);
+  --text: #0b0b0f;
+  --muted: #74747c;
+  --faint: #b4b4bc;
   --danger: #e5383b;
-  --danger-soft: rgb(229 56 59 / 0.12);
-  --success: #23a55a;
-  --tabbar: rgb(255 255 255 / 0.82);
+  --success: #1fa855;
+  --warning: #e8890c;
+  --tabbar: rgb(249 249 251 / 0.86);
+  --shadow: 0 1px 2px rgb(0 0 0 / 0.04), 0 4px 16px rgb(0 0 0 / 0.04);
+
+  --c-home: #0a84ff;
+  --c-meds: #0ea598;
+  --c-prayer: #5b57e0;
+  --c-todo: #f08800;
+  --c-fitness: #f2295b;
+  --c-habits: #22a957;
+  --c-money: #0b98d4;
+  --c-journal: #a24fd8;
+  --c-kcal: #ff7a1a;
+  --c-protein: #2b8cff;
   color-scheme: light;
 }
 
 .dark {
   --bg: #000000;
-  --surface: #16161a;
+  --surface: #151518;
   --surface-2: #232328;
   --surface-raised: #3a3a41;
   --border: rgb(255 255 255 / 0.09);
-  --text: #f4f4f6;
-  --muted: #9a9aa3;
-  --accent: #3d9bff;
-  --accent-soft: rgb(61 155 255 / 0.18);
+  --text: #f5f5f7;
+  --muted: #98989f;
+  --faint: #55555c;
   --danger: #ff5a5f;
-  --danger-soft: rgb(255 90 95 / 0.18);
   --success: #34c46e;
-  --tabbar: rgb(22 22 26 / 0.82);
+  --warning: #ffa630;
+  --tabbar: rgb(18 18 21 / 0.86);
+  --shadow: none;
+
+  --c-home: #3d9bff;
+  --c-meds: #2fd1c1;
+  --c-prayer: #8682ff;
+  --c-todo: #ffa223;
+  --c-fitness: #ff4f78;
+  --c-habits: #35d06e;
+  --c-money: #3cc1ff;
+  --c-journal: #c27af5;
+  --c-kcal: #ff9446;
+  --c-protein: #58a6ff;
   color-scheme: dark;
+}
+
+/* Each section tints its buttons, checkboxes and highlights with its own accent. */
+:root, [data-sec] {
+  --accent: var(--c-home);
+}
+[data-sec="meds"] { --accent: var(--c-meds); }
+[data-sec="prayer"] { --accent: var(--c-prayer); }
+[data-sec="todo"] { --accent: var(--c-todo); }
+[data-sec="fitness"] { --accent: var(--c-fitness); }
+[data-sec="habits"] { --accent: var(--c-habits); }
+[data-sec="money"] { --accent: var(--c-money); }
+[data-sec="journal"] { --accent: var(--c-journal); }
+:root, [data-sec], [style*="--accent"] {
+  --accent-soft: color-mix(in srgb, var(--accent) 14%, transparent);
+  --danger-soft: color-mix(in srgb, var(--danger) 13%, transparent);
+  --success-soft: color-mix(in srgb, var(--success) 14%, transparent);
+  --warning-soft: color-mix(in srgb, var(--warning) 15%, transparent);
 }
 
 @theme inline {
@@ -45,28 +103,37 @@
   --color-line: var(--border);
   --color-text: var(--text);
   --color-muted: var(--muted);
+  --color-faint: var(--faint);
   --color-accent: var(--accent);
   --color-accent-soft: var(--accent-soft);
   --color-danger: var(--danger);
   --color-danger-soft: var(--danger-soft);
   --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
   --color-tabbar: var(--tabbar);
-  --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --color-kcal: var(--c-kcal);
+  --color-protein: var(--c-protein);
+  --font-sans: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --shadow-card: var(--shadow);
 }
 
 @layer base {
   html, body, #root {
-    height: 100%;
+    min-height: 100%;
   }
   html {
     -webkit-text-size-adjust: 100%;
     -webkit-tap-highlight-color: transparent;
+    font-feature-settings: "cv11", "ss01";
   }
   body {
     margin: 0;
     background: var(--bg);
     color: var(--text);
     font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
     overscroll-behavior-y: none;
     /* Blocks double-tap zoom; pinch zoom is off via the viewport meta. */
     touch-action: manipulation;
@@ -76,9 +143,19 @@
   input, textarea, [contenteditable] {
     -webkit-user-select: text;
     user-select: text;
+    font: inherit;
   }
   button {
     cursor: pointer;
+  }
+  input[type="date"], input[type="time"] {
+    min-height: 1.5em;
+  }
+  ::-webkit-calendar-picker-indicator {
+    opacity: 0.5;
+  }
+  .dark ::-webkit-calendar-picker-indicator {
+    filter: invert(1);
   }
 }
 
@@ -86,24 +163,66 @@
 @utility pb-safe { padding-bottom: env(safe-area-inset-bottom); }
 @utility pl-safe { padding-left: env(safe-area-inset-left); }
 @utility pr-safe { padding-right: env(safe-area-inset-right); }
+@utility tabular { font-variant-numeric: tabular-nums; }
+@utility no-scrollbar {
+  scrollbar-width: none;
+  &::-webkit-scrollbar { display: none; }
+}
 
 /* Pressed feedback in place of hover. */
 @utility pressable {
-  transition: transform 120ms ease, opacity 120ms ease, background-color 150ms ease;
-  &:active { transform: scale(0.97); opacity: 0.85; }
+  transition: transform 140ms cubic-bezier(.2,.8,.2,1), opacity 140ms ease, background-color 160ms ease;
+  &:active { transform: scale(0.97); opacity: 0.88; }
 }
 
 @keyframes page-in {
-  from { opacity: 0; transform: translateY(6px); }
+  from { opacity: 0; transform: translateY(8px); }
   to { opacity: 1; transform: none; }
 }
 @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes fade-out { from { opacity: 1; } to { opacity: 0; } }
 @keyframes sheet-up { from { transform: translateY(100%); } to { transform: none; } }
+@keyframes sheet-down { from { transform: none; } to { transform: translateY(100%); } }
+@keyframes pop {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.22); }
+  100% { transform: scale(1); }
+}
+@keyframes check-draw { from { stroke-dashoffset: 24; } to { stroke-dashoffset: 0; } }
+@keyframes rise-in {
+  from { opacity: 0; transform: translateY(12px) scale(0.98); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes toast-in {
+  from { opacity: 0; transform: translateY(16px) scale(0.96); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
 
-@utility animate-page-in { animation: page-in 220ms cubic-bezier(.2,.8,.2,1) both; }
-@utility animate-fade-in { animation: fade-in 200ms ease both; }
-@utility animate-sheet-up { animation: sheet-up 320ms cubic-bezier(.2,.9,.25,1) both; }
+/* `backwards` (not `both`): a lingering transform would make fixed-position children relative to the page. */
+@utility animate-page-in { animation: page-in 260ms cubic-bezier(.2,.8,.2,1) backwards; }
+@utility animate-fade-in { animation: fade-in 220ms ease both; }
+@utility animate-fade-out { animation: fade-out 200ms ease both; }
+@utility animate-sheet-up { animation: sheet-up 380ms cubic-bezier(.16,1,.3,1) both; }
+@utility animate-sheet-down { animation: sheet-down 240ms cubic-bezier(.4,0,1,1) both; }
+@utility animate-pop { animation: pop 320ms cubic-bezier(.2,.8,.2,1); }
+@utility animate-check { stroke-dasharray: 24; animation: check-draw 260ms 60ms ease-out both; }
+@utility animate-rise-in { animation: rise-in 360ms cubic-bezier(.16,1,.3,1) backwards; }
+@utility animate-toast-in { animation: toast-in 320ms cubic-bezier(.16,1,.3,1) both; }
+@utility animate-pulse-dot { animation: pulse-dot 1.6s ease-in-out infinite; }
+
+/* Staggered entrance for card stacks. */
+.stagger > * { animation: rise-in 420ms cubic-bezier(.16,1,.3,1) backwards; }
+.stagger > *:nth-child(2) { animation-delay: 40ms; }
+.stagger > *:nth-child(3) { animation-delay: 80ms; }
+.stagger > *:nth-child(4) { animation-delay: 120ms; }
+.stagger > *:nth-child(5) { animation-delay: 160ms; }
+.stagger > *:nth-child(6) { animation-delay: 200ms; }
+.stagger > *:nth-child(n+7) { animation-delay: 240ms; }
 
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after { animation-duration: 1ms !important; transition-duration: 1ms !important; }
+  *, *::before, *::after { animation-duration: 1ms !important; animation-delay: 0ms !important; transition-duration: 1ms !important; }
 }
