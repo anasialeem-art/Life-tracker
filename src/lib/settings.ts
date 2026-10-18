@@ -1,4 +1,5 @@
 import { useLiveQuery } from 'dexie-react-hooks'
+import { createContext, useContext } from 'react'
 import { db } from './db'
 import type { DayKey } from './day'
 
@@ -67,12 +68,23 @@ export async function getAllSettings(): Promise<Settings> {
   return out as unknown as Settings
 }
 
-/** Live setting value; returns the default until the first read resolves. */
-export function useSetting<K extends keyof Settings>(key: K): Settings[K] {
-  return useLiveQuery(() => getSetting(key), [key]) ?? DEFAULT_SETTINGS[key]
+/**
+ * Settings are read once at the app root and shared, so switching tabs never
+ * waits on a database read before it can draw.
+ */
+export const SettingsContext = createContext<Settings | undefined>(undefined)
+
+/** The root's single live query; App passes the result into SettingsContext. */
+export function useSettingsQuery(): Settings | undefined {
+  return useLiveQuery(getAllSettings)
 }
 
-/** All settings live; undefined until loaded (lets pages avoid flashing defaults). */
+/** All settings; undefined only during the very first load. */
 export function useSettings(): Settings | undefined {
-  return useLiveQuery(getAllSettings)
+  return useContext(SettingsContext)
+}
+
+/** One setting; the default until the first load resolves. */
+export function useSetting<K extends keyof Settings>(key: K): Settings[K] {
+  return useContext(SettingsContext)?.[key] ?? DEFAULT_SETTINGS[key]
 }

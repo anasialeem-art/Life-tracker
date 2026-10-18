@@ -30,7 +30,7 @@ export function Fitness() {
   const [change, setChange] = useState(false)
   const [calendar, setCalendar] = useState(false)
 
-  if (!settings || !splits) return null
+  if (!settings || !splits) return <TopBar title="Fitness" />
   const future = day > today
   const log = logs.find((l) => l.day === day)
   const split = splitFor(settings, splits, day, log)

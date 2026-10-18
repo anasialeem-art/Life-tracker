@@ -20,6 +20,16 @@ function apply(theme: Theme) {
   }
 }
 
+/** Theme saved by the last run, so the first frame matches before settings load. */
+export function storedTheme(): Theme {
+  try {
+    const t = localStorage.getItem('theme')
+    return t === 'light' || t === 'dark' ? t : 'system'
+  } catch {
+    return 'system'
+  }
+}
+
 /** Applies the theme now and follows OS changes while set to "system". */
 export function useApplyTheme(theme: Theme) {
   useEffect(() => {

@@ -44,7 +44,7 @@ export function Prayer() {
   const today = settings ? prayerDayAt(settings, now) : todayKey(now)
   const [day, setDay] = useSelectedDay(today)
 
-  if (!settings) return null
+  if (!settings) return <TopBar title="Prayer" />
   const cfg: PrayerConfig = settings
 
   return (

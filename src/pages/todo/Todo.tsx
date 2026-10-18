@@ -7,7 +7,7 @@ import { compareTasks, dueLabel, isOverdue } from '../../lib/todo'
 import { useToday } from '../../lib/useToday'
 import { CheckListIcon, ChevronDown, ListIcon, PlusIcon } from '../../components/Icons'
 import { IconButton, TopBar } from '../../components/TopBar'
-import { Card, EmptyState, Page, SectionLabel, Segmented, useToast } from '../../components/ui'
+import { Button, Card, EmptyState, Page, SectionLabel, Segmented, useToast } from '../../components/ui'
 import { FocusList } from './FocusList'
 import { ListsSheet } from './ListsSheet'
 import { QuickAdd } from './QuickAdd'
@@ -92,7 +92,12 @@ export function Todo() {
         <div key={view} className="animate-page-in flex flex-col gap-3">
           {view === 'all' && lists && (
             allLists.length === 0 ? (
-              <Card><EmptyState icon={<CheckListIcon size={28} />} title="No lists">Create a list to start adding tasks.</EmptyState></Card>
+              <Card>
+                <EmptyState icon={<CheckListIcon size={28} />} title="No lists yet"
+                  action={<Button small onClick={() => setManage(true)}><PlusIcon size={18} /> Create a list</Button>}>
+                  Lists group your tasks, like Personal, Work or Uni.
+                </EmptyState>
+              </Card>
             ) : allLists.map((l) => (
               <ListSection key={l.id} list={l} tasks={visible.filter((t) => t.listId === l.id).sort(compareTasks)} today={today}
                 collapsed={collapsed.has(l.id)} onToggle={() => toggleCollapsed(l.id)}

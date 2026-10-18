@@ -70,7 +70,7 @@ export function Settings() {
   const offlineReady = !!navigator.serviceWorker?.controller
   const [open, setOpen] = useState<null | 'location' | 'method' | 'highlat' | 'split' | 'lists' | 'categories'>(null)
   const close = () => setOpen(null)
-  if (!s) return null
+  if (!s) return <TopBar title="Settings" backTo="/more" />
 
   return (
     <>

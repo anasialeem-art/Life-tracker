@@ -176,10 +176,12 @@
 }
 
 @keyframes page-in {
-  from { opacity: 0; transform: translateY(8px); }
+  from { opacity: 0.5; transform: translateY(8px); }
   to { opacity: 1; transform: none; }
 }
 @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+/* Never starts transparent: a dark-mode page must not flash black. */
+@keyframes push-in { from { transform: translateX(28px); opacity: 0.6; } to { transform: none; opacity: 1; } }
 @keyframes fade-out { from { opacity: 1; } to { opacity: 0; } }
 @keyframes sheet-up { from { transform: translateY(100%); } to { transform: none; } }
 @keyframes sheet-down { from { transform: none; } to { transform: translateY(100%); } }
@@ -210,6 +212,7 @@
 @utility animate-sheet-down { animation: sheet-down 240ms cubic-bezier(.4,0,1,1) both; }
 @utility animate-pop { animation: pop 320ms cubic-bezier(.2,.8,.2,1); }
 @utility animate-check { stroke-dasharray: 24; animation: check-draw 260ms 60ms ease-out both; }
+@utility animate-push-in { animation: push-in 240ms cubic-bezier(.2,.9,.25,1) backwards; }
 @utility animate-rise-in { animation: rise-in 360ms cubic-bezier(.16,1,.3,1) backwards; }
 @utility animate-toast-in { animation: toast-in 320ms cubic-bezier(.16,1,.3,1) both; }
 @utility animate-pulse-dot { animation: pulse-dot 1.6s ease-in-out infinite; }

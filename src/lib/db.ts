@@ -238,8 +238,10 @@ export async function setMeta(key: string, value: unknown): Promise<void> {
 
 /** First-run setup: records first use (for the backup reminder) and seeds starter lists and categories. */
 export async function ensureFirstUse(): Promise<void> {
-  if ((await getMeta('firstUsedAt')) !== undefined) return
-  await setMeta('firstUsedAt', Date.now())
+  if ((await getMeta('firstUsedAt')) === undefined) await setMeta('firstUsedAt', Date.now())
+  // Separate flag: phones that first ran the step-1 shell already have firstUsedAt.
+  if (await getMeta('seededStarters')) return
+  await setMeta('seededStarters', true)
   await db.transaction('rw', db.todoLists, db.moneyCategories, async () => {
     if ((await db.todoLists.count()) === 0) {
       await db.todoLists.bulkAdd([
