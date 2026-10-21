@@ -84,6 +84,10 @@ describe('quran helpers', () => {
     expect(q.notice).toEqual(['Tanzil notice', ' line two'])
     expect(splitBasmala(q, 2, 1)).toEqual({ basmala: 'a', rest: 'c' })
     expect(splitBasmala(q, 1, 1)).toEqual({ basmala: null, rest: 'a' })
+    // Basmala with an extra shadda (as in 95:1): recognised, and its own spelling kept.
+    const v = parseTanzil('1|1|بِسْمِ ٱللَّهِ\n95|1|بِّسْمِ ٱللَّهِ وَٱلتِّينِ\n96|1|ٱقْرَأْ بِٱسْمِ\n')
+    expect(splitBasmala(v, 95, 1)).toEqual({ basmala: 'بِّسْمِ ٱللَّهِ', rest: 'وَٱلتِّينِ' })
+    expect(splitBasmala(v, 96, 1).basmala).toBeNull()
     expect(arabicNumber(286)).toBe('٢٨٦')
   })
 
@@ -116,7 +120,13 @@ describe('quran helpers', () => {
     expect(juzOfPage(meta, 582)).toBe(30)
     expect(splitBasmala(text, 2, 1).basmala).toBe(text.ayat[0][0])
     expect(splitBasmala(text, 9, 1).basmala).toBeNull()
-    for (let s = 2; s <= 114; s++) if (s !== 9) expect(splitBasmala(text, s, 1).basmala, `surah ${s}`).not.toBeNull()
+    for (let s = 2; s <= 114; s++) {
+      if (s === 9) continue
+      const { basmala, rest } = splitBasmala(text, s, 1)
+      expect(basmala, `surah ${s}`).not.toBeNull()
+      // Splitting must not lose or change a single character.
+      expect(`${basmala} ${rest}`, `surah ${s}`).toBe(text.ayat[s - 1][0])
+    }
     expect(text.notice.join(' ')).toMatch(/tanzil/i)
   })
 })

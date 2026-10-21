@@ -101,13 +101,22 @@ export function surahsOnPage(meta: QuranMeta, page: number): number[] {
 /**
  * Tanzil prefixes the first ayah of every surah except al-Fatiha and at-Tawbah
  * with the basmala. Splits it off (characters unchanged) so it can be shown as
- * its own centered line, like a printed mushaf.
+ * its own centered line, like a printed mushaf. In a few surahs (e.g. 95, 97)
+ * the Uthmani basmala carries an extra shadda, so words are compared without it
+ * and the surah's own spelling is kept.
  */
 export function splitBasmala(text: QuranText, sura: number, aya: number): { basmala: string | null; rest: string } {
   const t = text.ayat[sura - 1][aya - 1]
-  const basmala = text.ayat[0][0]
-  if (aya === 1 && sura !== 1 && t.startsWith(`${basmala} `)) return { basmala, rest: t.slice(basmala.length + 1) }
-  return { basmala: null, rest: t }
+  if (aya !== 1 || sura === 1) return { basmala: null, rest: t }
+  const words = text.ayat[0][0].split(' ')
+  const bare = (w: string) => w.replace(/\u0651/g, '')
+  let end = 0
+  for (const w of words) {
+    const next = t.indexOf(' ', end)
+    if (next < 0 || bare(t.slice(end, next)) !== bare(w)) return { basmala: null, rest: t }
+    end = next + 1
+  }
+  return { basmala: t.slice(0, end - 1), rest: t.slice(end) }
 }
 
 const AR_DIGITS = '٠١٢٣٤٥٦٧٨٩'
