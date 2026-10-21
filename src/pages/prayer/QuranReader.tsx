@@ -58,7 +58,11 @@ export function QuranReader({ initialPage, onClose }: { initialPage: number; onC
   const scroller = useRef<HTMLDivElement>(null)
   const area = useRef<HTMLDivElement>(null)
   const [box, setBox] = useState({ w: 0, h: 0 })
-  const gesture = useRef<{ x: number; y: number; t: number } | null>(null)
+  const gesture = useRef<{ x: number; y: number; t: number; axis: 'x' | 'y' | null } | null>(null)
+  // Horizontal drag offset while swiping, and which way the last page turn went (for the slide-in).
+  const [drag, setDrag] = useState(0)
+  const [dragging, setDragging] = useState(false)
+  const [turn, setTurn] = useState<'next' | 'prev' | null>(null)
 
   useBackClose(true, onClose)
   useEffect(() => { loadQuran().then(setText) }, [])
@@ -121,23 +125,56 @@ export function QuranReader({ initialPage, onClose }: { initialPage: number; onC
     return () => clearInterval(tick)
   }, [page]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const go = (p: number) => setPage(Math.min(TOTAL_PAGES, Math.max(1, p)))
+  const go = (p: number) => {
+    const next = Math.min(TOTAL_PAGES, Math.max(1, p))
+    if (next === page) return
+    setTurn(next > page ? 'next' : 'prev')
+    setPage(next)
+  }
   const toggleBookmark = () => (bookmark ? db.quranBookmarks.delete(bookmark.id) : db.quranBookmarks.add({ id: uid(), page, createdAt: Date.now() }))
   const zoom = (dir: 1 | -1) => {
     const i = FONT_SIZES.findIndex((s) => s >= fontSize)
     setSetting('quranFontSize', FONT_SIZES[Math.min(FONT_SIZES.length - 1, Math.max(0, (i < 0 ? 2 : i) + dir))])
   }
 
-  const onDown = (e: PointerEvent) => { gesture.current = { x: e.clientX, y: e.clientY, t: Date.now() } }
-  const onUp = (e: PointerEvent) => {
+  // Swipe right for the next page (like an Arabic book), left for the previous one. The page follows
+  // the finger; a long enough drag or a quick flick turns it. The area sets touch-action so Chrome
+  // doesn't claim sideways gestures as a scroll (which cancels them).
+  const onDown = (e: PointerEvent) => {
+    gesture.current = { x: e.clientX, y: e.clientY, t: Date.now(), axis: null }
+    ;(e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId)
+  }
+  const onMove = (e: PointerEvent) => {
     const g = gesture.current
-    gesture.current = null
     if (!g) return
     const dx = e.clientX - g.x
     const dy = e.clientY - g.y
-    if (Math.abs(dx) > 70 && Math.abs(dy) < 60) go(page + (dx > 0 ? 1 : -1))
-    else if (Math.abs(dx) < 10 && Math.abs(dy) < 10 && Date.now() - g.t < 400) setControls((c) => !c)
+    if (!g.axis && (Math.abs(dx) > 8 || Math.abs(dy) > 8)) g.axis = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y'
+    if (g.axis !== 'x') return
+    const blocked = (dx > 0 && page >= TOTAL_PAGES) || (dx < 0 && page <= 1)
+    setDragging(true)
+    setDrag(blocked ? dx / 4 : dx)
   }
+  const onUp = (e: PointerEvent) => {
+    const g = gesture.current
+    gesture.current = null
+    setDragging(false)
+    if (!g) return
+    const dx = e.clientX - g.x
+    const dy = e.clientY - g.y
+    const dt = Math.max(1, Date.now() - g.t)
+    const target = page + (dx > 0 ? 1 : -1)
+    if (g.axis === 'x' && (Math.abs(dx) > 70 || (Math.abs(dx) > 30 && Math.abs(dx) / dt > 0.5)) && target >= 1 && target <= TOTAL_PAGES) {
+      setDrag(dx > 0 ? box.w : -box.w)
+      setTimeout(() => { go(target); setDrag(0) }, 170)
+      return
+    }
+    setDrag(0)
+    if (Math.abs(dx) < 10 && Math.abs(dy) < 10 && dt < 400) setControls((c) => !c)
+  }
+  const cancel = () => { gesture.current = null; setDragging(false); setDrag(0) }
+  const slideIn = turn === 'next' ? 'animate-page-from-left' : turn === 'prev' ? 'animate-page-from-right' : 'animate-fade-in'
+  const dragStyle: CSSProperties = { transform: drag ? `translateX(${drag}px)` : undefined, transition: dragging ? 'none' : 'transform 170ms ease-out' }
 
   const meta = META
   const lines = mushaf?.[page - 1]
@@ -162,9 +199,11 @@ export function QuranReader({ initialPage, onClose }: { initialPage: number; onC
         </span>
       </div>
 
-      <div ref={area} className="relative min-h-0 flex-1" onPointerDown={onDown} onPointerUp={onUp} onPointerCancel={() => (gesture.current = null)}>
+      <div ref={area} className="relative min-h-0 flex-1 overflow-hidden" style={{ touchAction: showMushaf ? 'none' : 'pan-y' }}
+        onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={cancel}>
+        <div className="absolute inset-0" style={dragStyle}>
         {showMushaf && lines ? (
-          <div key={page} className="animate-fade-in absolute inset-0 flex items-center justify-center px-3">
+          <div key={page} className={`${slideIn} absolute inset-0 flex items-center justify-center px-3`}>
             {font === 'ready' && box.w > 0 ? (
               <MushafPage page={page} lines={lines} theme={theme} width={box.w - 24} height={box.h - 8} ink={ink} shared={shared} text={text ?? null} />
             ) : (
@@ -172,8 +211,9 @@ export function QuranReader({ initialPage, onClose }: { initialPage: number; onC
             )}
           </div>
         ) : (
-          <div ref={scroller} className="absolute inset-0 overflow-y-auto overscroll-contain">
-            <div key={page} className="animate-fade-in mx-auto max-w-xl px-5 py-4">
+          <div ref={scroller} className="absolute inset-0 overflow-y-auto overscroll-contain"
+            style={{ touchAction: 'pan-y' /* touch-action stops at a scroll container, so the scroller needs its own for sideways swipes */ }}>
+            <div key={page} className={`${slideIn} mx-auto max-w-xl px-5 py-4`}>
               {wantMushaf && font === 'failed' && (
                 <p className="mb-3 rounded-xl bg-surface-2/70 px-3 py-2 text-center text-[12px] text-muted">This mushaf page isn’t downloaded yet, so it’s shown as plain text. It downloads next time you’re online.</p>
               )}
@@ -183,6 +223,7 @@ export function QuranReader({ initialPage, onClose }: { initialPage: number; onC
             </div>
           </div>
         )}
+        </div>
       </div>
 
       <div className="shrink-0 pb-[max(env(safe-area-inset-bottom),10px)] text-center text-[14px] font-medium opacity-80 tabular">{page}</div>
