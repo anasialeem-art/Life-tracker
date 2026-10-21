@@ -98,6 +98,9 @@ export function Settings() {
 
         <SectionLabel>Quran & fasting</SectionLabel>
         <Group>
+          <Row icon={<QuranIcon size={18} />} label="Mushaf">
+            <div className="w-44"><Segmented size="sm" value={s.quranStyle} onChange={(v) => setSetting('quranStyle', v)} options={[{ value: 'tajweed', label: 'Tajweed' }, { value: 'text', label: 'Plain text' }]} /></div>
+          </Row>
           <NumberRow icon={<QuranIcon size={18} />} label="Daily page goal" unit="pages" value={s.quranDailyGoal} onSave={(n) => setSetting('quranDailyGoal', n)} />
           <Row icon={<TrophyIcon size={18} />} label="Completed khatmas">
             <Stepper value={s.quranKhatmasCompleted} min={0} max={999} onChange={(n) => setSetting('quranKhatmasCompleted', n)} />
@@ -196,6 +199,7 @@ function Credits() {
           {notice?.length ? <pre className="overflow-x-auto rounded-xl bg-surface-2 p-3 font-sans text-[12px] whitespace-pre-wrap">{notice.join('\n').trim()}</pre> : null}
         </div>
       )}
+      <Row label={<span className="text-[14px] text-muted">Tajweed mushaf: KFGQPC V4 (1441H) page fonts, surah-name and frame fonts © King Fahd Glorious Qur’an Printing Complex (all rights reserved; free for non-commercial, charitable use, not for sale), tajweed colour features by Ayman, Rania, Syeds, Naveed, Zahid, Tooba and Anza (Sadaqa-e-Jaria), published by the Quranic Universal Library (qul.tarteel.ai) and downloaded from it onto this phone. Page layout: QUL’s open data (mushaf layout 19). Rendering follows tlawat/remotion-mushaf-line (MIT).</span>} />
       <Row label={<span className="text-[14px] text-muted">Amiri Quran font by the Amiri Project (SIL Open Font License 1.1) · Inter font by Rasmus Andersson (SIL OFL 1.1) · Prayer times by adhan-js (MIT)</span>} />
     </Group>
   )

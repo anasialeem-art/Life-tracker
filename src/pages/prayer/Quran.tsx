@@ -1,12 +1,13 @@
 import { useLiveQuery } from 'dexie-react-hooks'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { db } from '../../lib/db'
+import { ALL_FONT_URLS, DOWNLOAD_MB, HAS_MUSHAF, downloadMushaf, refreshDownloadCount, subscribeDownload, type DownloadState } from '../../lib/mushaf'
 import { todayKey } from '../../lib/day'
 import {
   META, TOTAL_PAGES, juzOfPage, juzStartPage, khatmaPages, nextUnreadPage, surahStartPage, surahsOnPage,
 } from '../../lib/quran'
 import { useSettings } from '../../lib/settings'
-import { BookmarkIcon, ChevronRight, PlusIcon, QuranIcon, TrophyIcon, XIcon } from '../../components/Icons'
+import { BookmarkIcon, CheckIcon, ChevronRight, DownloadIcon, PlusIcon, QuranIcon, TrophyIcon, XIcon } from '../../components/Icons'
 import { Sheet, SheetAction } from '../../components/Sheet'
 import { Button, Card, EmptyState, Field, Page, ProgressBar, Ring, SectionLabel, Segmented, Stepper, TextInput, useToast } from '../../components/ui'
 import { logQuranPages } from './quranLog'
@@ -59,6 +60,8 @@ export function QuranSection() {
           </div>
           <span className="relative mt-4 inline-flex rounded-full bg-white px-4 py-2 text-[15px] font-semibold text-[#064e3b]">Open reader</span>
         </button>
+
+        {HAS_MUSHAF && settings.quranStyle === 'tajweed' && <MushafDownloadCard />}
 
         <Card>
           <div className="flex items-end justify-between">
@@ -216,5 +219,45 @@ function LogPagesSheet({ open, onClose, from, goal, onLogged }: { open: boolean;
         )}
       </div>
     </Sheet>
+  )
+}
+
+/**
+ * The tajweed mushaf's fonts come from QUL once and are kept for offline use. Starts by itself the
+ * first time (unless the phone asks to save data), resumes where it stopped, and says when it's done.
+ */
+function MushafDownloadCard() {
+  const [s, setS] = useState<DownloadState | null>(null)
+  useEffect(() => subscribeDownload(setS), [])
+  useEffect(() => {
+    const saveData = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection?.saveData
+    refreshDownloadCount().then((done) => {
+      if (done < ALL_FONT_URLS.length && navigator.onLine && !saveData) downloadMushaf()
+    })
+  }, [])
+  if (!s) return null
+  const complete = s.done >= s.total
+  if (complete) {
+    return (
+      <p className="flex items-center justify-center gap-1.5 text-[13px] font-medium text-success">
+        <CheckIcon size={15} strokeWidth={3} /> Tajweed mushaf saved for offline reading
+      </p>
+    )
+  }
+  const mb = Math.round((s.done / s.total) * DOWNLOAD_MB)
+  return (
+    <Card>
+      <div className="flex items-center gap-3">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px] bg-accent-soft text-accent"><DownloadIcon size={20} /></span>
+        <div className="min-w-0 flex-1">
+          <p className="text-[15px] font-semibold">{s.running ? 'Downloading the tajweed mushaf' : 'Tajweed mushaf for offline use'}</p>
+          <p className="text-[13px] text-muted tabular">{s.done} of {s.total} files · {mb} of ~{DOWNLOAD_MB} MB{s.running ? '' : ' · best on Wi-Fi'}</p>
+        </div>
+        {!s.running && <Button small onClick={() => downloadMushaf()}>{s.done ? 'Resume' : 'Download'}</Button>}
+      </div>
+      <div className="mt-3"><ProgressBar value={s.done} max={s.total} height={8} /></div>
+      {s.error && <p className="mt-2 text-[13px] text-warning">{s.error}</p>}
+      <p className="mt-2 text-[12px] leading-snug text-muted">The King Fahd Complex fonts come from QUL (qul.tarteel.ai) once and stay on your phone. Pages you open are fetched first.</p>
+    </Card>
   )
 }

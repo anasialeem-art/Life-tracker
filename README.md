@@ -40,6 +40,14 @@ When a new version is deployed, the app shows a **Reload** prompt. It never relo
 
 The Quran text and page data come from [Tanzil.net](https://tanzil.net). `scripts/fetch-tanzil.mjs` downloads them during the deploy build (into the git-ignored `src/data/tanzil/`), checks them (6236 ayat, 114 surahs, 604 pages, 30 juz) and the app bundles the text file unmodified. A test (`src/lib/features.test.ts`) checks the real data whenever it is present. Without the files (e.g. a local build where tanzil.net is unreachable) the app still builds and the Quran section says the text isn't included.
 
+## Tajweed mushaf
+
+The reader shows the KFGQPC V4 (1441H) tajweed mushaf: 604 pages of 15 printed lines with the tajweed colours and ayah rosettes.
+
+- **Layout** (which glyphs are on which line) is QUL's open data (qul.tarteel.ai, mushaf layout 19). `scripts/fetch-mushaf.mjs` downloads the two exports during the deploy build, checks them (604 pages, 9,046 lines, 83,668 words, one marker per ayah, known pages) and writes `src/data/mushaf/qpc-v4.json` (git-ignored).
+- **Fonts** are © King Fahd Glorious Qur'an Printing Complex (free for non-commercial, charitable use; not for sale; publishing needs permission). The app does **not** host them: the phone downloads them once from QUL's CDN into Cache Storage (`src/lib/mushaf.ts`) and reads offline afterwards. Until a page's font is available the reader shows that page as Tanzil text.
+- Rendering follows tlawat/remotion-mushaf-line (MIT): words at the font's own advances, each full line scaled to the measure, QUL's light/dark palettes via `@font-palette-values`.
+
 ## Architecture notes
 
 - **Day logic** (`src/lib/day.ts`): dates are `YYYY-MM-DD` *day keys*. The app day runs 05:00 → 05:00 (`todayKey`, `hasDayEnded`); the prayer day switches at Fajr (`prayerDayKeyAt`). `useToday()` re-renders at the rollover and whenever the app returns to the foreground.

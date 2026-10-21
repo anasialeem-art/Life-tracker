@@ -59,7 +59,9 @@ function parseMeta(js) {
   const pages = q.Page.slice(1).map(([s, a]) => [s, a])
   const juz = q.Juz.slice(1).map(([s, a]) => [s, a])
   const sajda = (q.Sajda ?? []).slice(1).map(([s, a]) => [s, a])
-  return { suras, pages, juz, sajda }
+  // Rub' al-hizb starts (Tanzil spells the field "HizbQaurter"): 240 quarters, 4 per hizb.
+  const quarters = (q.HizbQaurter ?? q.HizbQuarter ?? []).slice(1).filter((x) => x && x.length === 2).map(([s, a]) => [s, a]).slice(0, 240)
+  return { suras, pages, juz, sajda, quarters }
 }
 
 /** Throws unless the metadata matches the standard Madani mushaf. */
@@ -70,6 +72,7 @@ export function validateMeta(meta) {
   // 604 page starts plus the sentinel.
   if (meta.pages.length !== 605) throw new Error(`Expected 604 pages (+ sentinel), got ${meta.pages.length}`)
   if (meta.juz.length !== 31) throw new Error(`Expected 30 juz (+ sentinel), got ${meta.juz.length}`)
+  if (meta.quarters && meta.quarters.length !== 240) throw new Error(`Expected 240 hizb quarters, got ${meta.quarters.length}`)
   const [p1, p2] = meta.pages
   if (p1.join() !== '1,1' || p2.join() !== '2,1') throw new Error('Page 1 should be al-Fatiha and page 2 start al-Baqarah')
 }

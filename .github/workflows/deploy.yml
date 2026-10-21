@@ -26,6 +26,8 @@ jobs:
       - run: npm ci
       # Quran text and page data from Tanzil.net, bundled unmodified into the build.
       - run: node scripts/fetch-tanzil.mjs --strict
+      # Tajweed mushaf page layout (QUL open data); the fonts are fetched by the phone itself.
+      - run: node --experimental-sqlite scripts/fetch-mushaf.mjs --strict
       - run: npm test
       - run: npm run build
       - uses: actions/upload-pages-artifact@v3

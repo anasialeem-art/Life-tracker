@@ -40,6 +40,8 @@ export interface Settings {
   quranKhatmaStart: number | null
   quranKhatmasCompleted: number
   quranFontSize: number
+  /** Reader style: the King Fahd tajweed mushaf, or the plain Tanzil text. */
+  quranStyle: 'tajweed' | 'text'
   /** Days added to the calculated Hijri date to match local moon sighting. */
   hijriOffset: number
   /** Fasts owed from before tracking, adjusted manually. */
@@ -70,6 +72,7 @@ export const DEFAULT_SETTINGS: Settings = {
   quranKhatmaStart: null,
   quranKhatmasCompleted: 0,
   quranFontSize: 26,
+  quranStyle: 'tajweed',
   hijriOffset: 0,
   qadaFastBase: 0,
   fastingTrackingStart: null,

@@ -7,7 +7,7 @@ import type { QuranRead } from './db'
 export const TOTAL_PAGES = 604
 
 export interface SurahMeta { n: number; ayas: number; name: string; tname: string; ename: string; type: string }
-export interface QuranMeta { suras: SurahMeta[]; pages: [number, number][]; juz: [number, number][]; sajda: [number, number][] }
+export interface QuranMeta { suras: SurahMeta[]; pages: [number, number][]; juz: [number, number][]; sajda: [number, number][]; quarters?: [number, number][] }
 
 const metaModules = import.meta.glob<QuranMeta>('../data/tanzil/quran-meta.json', { eager: true, import: 'default' })
 const textModules = import.meta.glob<string>('../data/tanzil/quran-uthmani.txt', { query: '?raw', import: 'default' })
