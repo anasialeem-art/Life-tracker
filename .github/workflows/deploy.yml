@@ -24,6 +24,8 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      # Quran text and page data from Tanzil.net, bundled unmodified into the build.
+      - run: node scripts/fetch-tanzil.mjs --strict
       - run: npm test
       - run: npm run build
       - uses: actions/upload-pages-artifact@v3
