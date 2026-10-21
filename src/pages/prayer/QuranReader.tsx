@@ -142,8 +142,11 @@ export function QuranReader({ initialPage, onClose }: { initialPage: number; onC
   const meta = META
   const lines = mushaf?.[page - 1]
   const showMushaf = wantMushaf && !!lines && font !== 'failed'
-  const suras = meta ? surahsOnPage(meta, page) : []
-  const first = meta ? pageAyat(meta, page)[0] : null
+  // With the mushaf shown, describe the page by its own lines (this edition's page starts can differ by an ayah).
+  const ownFirst = showMushaf ? lines!.find((l) => l[0] === 'a') as readonly ['a', 0 | 1, string, number, number] | undefined : undefined
+  const suras = showMushaf ? [...new Set(lines!.flatMap((l) => (l[0] === 's' ? [l[1]] : l[0] === 'a' ? [l[3]] : [])))] : meta ? surahsOnPage(meta, page) : []
+  const first = ownFirst ? { sura: ownFirst[3], aya: ownFirst[4] } : meta ? pageAyat(meta, page)[0] : null
+  const juz = meta && first ? juzOfPage(meta, page, [first.sura, first.aya]) : null
   const quarter = meta?.quarters?.length && first ? quarterOf(meta.quarters, first.sura, first.aya) : null
   const bg = showMushaf ? (dark ? '#0e0e0f' : '#fffdf7') : 'var(--page)'
   const ink = showMushaf ? INK[theme] : 'var(--page-ink)'
@@ -154,7 +157,7 @@ export function QuranReader({ initialPage, onClose }: { initialPage: number; onC
       <div className="mx-auto flex w-full max-w-xl shrink-0 items-center justify-between px-5 pt-[max(env(safe-area-inset-top),12px)] pb-1 text-[14px] opacity-80">
         <span className="truncate font-medium">{meta ? suras.map((s) => meta.suras[s - 1].tname).join(' · ') : ''}</span>
         <span className="flex shrink-0 items-center gap-3 font-medium tabular">
-          {meta && <span>Juz {juzOfPage(meta, page)}</span>}
+          {juz !== null && <span>Juz {juz}</span>}
           {quarter !== null && <span className="flex items-center gap-1"><HizbMark part={quarter % 4} /> Hizb {Math.floor(quarter / 4) + 1}</span>}
         </span>
       </div>
@@ -191,7 +194,7 @@ export function QuranReader({ initialPage, onClose }: { initialPage: number; onC
             <button type="button" onClick={onClose} aria-label="Close reader" className="pressable flex h-10 w-10 items-center justify-center rounded-full text-muted"><XIcon size={22} /></button>
             <div className="min-w-0 flex-1 text-center">
               {meta && <p dir="rtl" lang="ar" className="font-quran truncate text-[19px] leading-tight">{suras.map((s) => `سورة ${meta.suras[s - 1].name}`).join(' · ')}</p>}
-              <p className="text-[12px] text-muted tabular">Juz {meta ? juzOfPage(meta, page) : '–'} · Page {page} of {TOTAL_PAGES}</p>
+              <p className="text-[12px] text-muted tabular">Juz {juz ?? '–'} · Page {page} of {TOTAL_PAGES}</p>
             </div>
             <button type="button" onClick={toggleBookmark} aria-label={bookmark ? 'Remove bookmark' : 'Bookmark this page'} aria-pressed={!!bookmark}
               className={`pressable flex h-10 w-10 items-center justify-center rounded-full ${bookmark ? 'text-accent' : 'text-muted'}`}>

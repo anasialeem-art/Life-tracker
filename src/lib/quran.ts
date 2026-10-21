@@ -82,9 +82,9 @@ export function pageAyat(meta: QuranMeta, page: number): PageAyah[] {
   return out
 }
 
-/** Juz of a page (in the Madani mushaf every juz starts at the top of a page). */
-export function juzOfPage(meta: QuranMeta, page: number): number {
-  const first = meta.pages[page - 1]
+/** Juz of a page (in the Madani mushaf every juz starts at the top of a page). `first` overrides the page's first ayah. */
+export function juzOfPage(meta: QuranMeta, page: number, firstAyah?: [number, number]): number {
+  const first = firstAyah ?? meta.pages[page - 1]
   let j = 1
   for (let i = 0; i < 30; i++) if (cmpRef(meta.juz[i], first) <= 0) j = i + 1
   return j

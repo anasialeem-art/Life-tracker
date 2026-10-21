@@ -1,7 +1,10 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useEffect, useState } from 'react'
 import { db } from '../../lib/db'
-import { ALL_FONT_URLS, DOWNLOAD_MB, HAS_MUSHAF, downloadMushaf, refreshDownloadCount, subscribeDownload, type DownloadState } from '../../lib/mushaf'
+import {
+  ALL_FONT_URLS, DOWNLOAD_MB, HAS_MUSHAF, downloadMushaf, loadMushafIndex, mushafPageOf, refreshDownloadCount, subscribeDownload,
+  type DownloadState, type MushafIndex,
+} from '../../lib/mushaf'
 import { todayKey } from '../../lib/day'
 import {
   META, TOTAL_PAGES, juzOfPage, juzStartPage, khatmaPages, nextUnreadPage, surahStartPage, surahsOnPage,
@@ -26,6 +29,10 @@ export function QuranSection() {
   const start = settings?.quranKhatmaStart ?? 0
   const khatmaReads = useLiveQuery(() => db.quranReads.where('at').aboveOrEqual(start).toArray(), [start]) ?? []
   const bookmarks = useLiveQuery(() => db.quranBookmarks.orderBy('page').toArray()) ?? []
+  // The tajweed mushaf's own page index (its 1441H page starts differ from Tanzil's on a few pages).
+  const [index, setIndex] = useState<MushafIndex | null>(null)
+  const useOwn = HAS_MUSHAF && settings?.quranStyle !== 'text'
+  useEffect(() => { if (useOwn) loadMushafIndex().then(setIndex) }, [useOwn])
 
   if (!settings) return null
   const meta = META
@@ -37,8 +44,12 @@ export function QuranSection() {
     )
   }
 
+  const idx = useOwn ? index : null
+  const surahPage = (s: number) => idx?.surahStart[s - 1] ?? surahStartPage(meta, s)
+  const juzPage = (j: number) => (idx ? mushafPageOf(idx, ...meta.juz[j - 1]) : juzStartPage(meta, j))
+  const firstSurahOn = (p: number) => idx?.surahs[p - 1][0] ?? surahsOnPage(meta, p)[0]
   const last = settings.quranLastPage
-  const lastSura = meta.suras[surahsOnPage(meta, last)[0] - 1]
+  const lastSura = meta.suras[firstSurahOn(last) - 1]
   const pages = khatmaPages(khatmaReads, settings.quranKhatmaStart)
   const goal = settings.quranDailyGoal
   const pct = Math.round((pages.size / TOTAL_PAGES) * 100)
@@ -54,7 +65,7 @@ export function QuranSection() {
           <div className="relative mt-1 flex items-end justify-between gap-3">
             <div>
               <p className="text-[24px] leading-tight font-bold">{lastSura.tname}</p>
-              <p className="text-[14px] text-white/80 tabular">Page {last} · Juz {juzOfPage(meta, last)}</p>
+              <p className="text-[14px] text-white/80 tabular">Page {last} · Juz {juzOfPage(meta, last, idx?.first[last - 1])}</p>
             </div>
             <p dir="rtl" lang="ar" className="font-quran text-[30px] leading-none">{lastSura.name}</p>
           </div>
@@ -94,7 +105,7 @@ export function QuranSection() {
             <SectionLabel>Bookmarks</SectionLabel>
             <div className="no-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4">
               {bookmarks.map((b) => {
-                const s = meta.suras[surahsOnPage(meta, b.page)[0] - 1]
+                const s = meta.suras[firstSurahOn(b.page) - 1]
                 return (
                   <button key={b.id} type="button" onClick={() => setReader(b.page)}
                     className="pressable flex shrink-0 items-center gap-2.5 rounded-2xl bg-surface px-3.5 py-2.5 text-left shadow-card">
@@ -116,14 +127,14 @@ export function QuranSection() {
           {browse === 'surah' && (
             <div className="rounded-[22px] bg-surface px-2 py-1 shadow-card">
               {meta.suras.map((s) => (
-                <button key={s.n} type="button" onClick={() => setReader(surahStartPage(meta, s.n))}
+                <button key={s.n} type="button" onClick={() => setReader(surahPage(s.n))}
                   className="flex min-h-[60px] w-full items-center gap-3 rounded-2xl px-2 text-left active:bg-surface-2">
                   <span className="flex h-9 w-9 shrink-0 rotate-45 items-center justify-center rounded-[10px] bg-accent-soft">
                     <span className="-rotate-45 text-[13px] font-bold text-accent tabular">{s.n}</span>
                   </span>
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-[16px] font-semibold">{s.tname}</span>
-                    <span className="block truncate text-[12px] text-muted">{s.ename} · {s.ayas} ayat · p. {surahStartPage(meta, s.n)}</span>
+                    <span className="block truncate text-[12px] text-muted">{s.ename} · {s.ayas} ayat · p. {surahPage(s.n)}</span>
                   </span>
                   <span dir="rtl" lang="ar" className="font-quran text-[22px] leading-none">{s.name}</span>
                 </button>
@@ -134,7 +145,7 @@ export function QuranSection() {
             <div className="rounded-[22px] bg-surface px-2 py-1 shadow-card">
               {Array.from({ length: 30 }, (_, i) => i + 1).map((j) => {
                 const [s, a] = meta.juz[j - 1]
-                const p = juzStartPage(meta, j)
+                const p = juzPage(j)
                 return (
                   <button key={j} type="button" onClick={() => setReader(p)}
                     className="flex min-h-[56px] w-full items-center gap-3 rounded-2xl px-2 text-left active:bg-surface-2">

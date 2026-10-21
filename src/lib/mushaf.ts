@@ -252,3 +252,50 @@ export function quarterOf(quarters: [number, number][], sura: number, aya: numbe
   }
   return q
 }
+
+// ---- Page index of this edition --------------------------------------------------------------
+// The 1441H print starts some pages an ayah or two away from other Madani indexes (e.g. Tanzil's),
+// so headers and "go to" use the mushaf's own lines when it is shown.
+
+export interface MushafIndex {
+  /** First ayah [surah, ayah] printed on each page (index = page - 1). */
+  first: [number, number][]
+  /** Surahs with text or a header on each page. */
+  surahs: number[][]
+  /** Page of each surah's header (index = surah - 1). */
+  surahStart: number[]
+}
+
+export function indexMushaf(pages: MushafLine[][]): MushafIndex {
+  const first: [number, number][] = []
+  const surahs: number[][] = []
+  const surahStart: number[] = []
+  pages.forEach((lines, i) => {
+    const set = new Set<number>()
+    let f: [number, number] | null = null
+    for (const l of lines) {
+      if (l[0] === 's') { set.add(l[1]); surahStart[l[1] - 1] ??= i + 1 }
+      if (l[0] === 'a') { set.add(l[3]); f ??= [l[3], l[4]] }
+    }
+    first.push(f ?? first[i - 1] ?? [1, 1])
+    surahs.push([...set].sort((a, b) => a - b))
+  })
+  return { first, surahs, surahStart }
+}
+
+/** Page on which an ayah is printed in this edition. */
+export function mushafPageOf(index: MushafIndex, sura: number, aya: number): number {
+  let page = 1
+  for (let i = 0; i < index.first.length; i++) {
+    const [s, a] = index.first[i]
+    if (s < sura || (s === sura && a <= aya)) page = i + 1
+    else break
+  }
+  return page
+}
+
+let indexPromise: Promise<MushafIndex | null> | null = null
+export function loadMushafIndex(): Promise<MushafIndex | null> {
+  indexPromise ??= loadMushafPages().then((p) => (p ? indexMushaf(p) : null))
+  return indexPromise
+}
