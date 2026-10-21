@@ -1,5 +1,5 @@
 import { useLiveQuery } from 'dexie-react-hooks'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { db, type Task, type TodoList } from '../../lib/db'
 import { addDays, type DayKey } from '../../lib/day'
 import { setSetting, useSetting } from '../../lib/settings'
@@ -13,15 +13,23 @@ import { ListsSheet } from './ListsSheet'
 import { QuickAdd } from './QuickAdd'
 import { TaskRow } from './TaskRow'
 import { TaskSheet } from './TaskSheet'
+import { UniView } from './Uni'
 
-type View = 'all' | 'today' | 'upcoming'
+type View = 'all' | 'today' | 'upcoming' | 'uni'
+
+const VIEWS: View[] = ['all', 'today', 'upcoming', 'uni']
 
 function readCollapsed(): Set<string> {
   try { return new Set(JSON.parse(localStorage.getItem('todo-collapsed') ?? '[]')) } catch { return new Set() }
 }
 
 function readView(): View {
-  try { return (localStorage.getItem('todo-view') as View) || 'all' } catch { return 'all' }
+  try {
+    const v = localStorage.getItem('todo-view') as View
+    return VIEWS.includes(v) ? v : 'all'
+  } catch {
+    return 'all'
+  }
 }
 
 export function Todo() {
@@ -46,6 +54,13 @@ export function Todo() {
     setViewState(v)
     try { localStorage.setItem('todo-view', v) } catch { /* per-device preference only */ }
   }
+
+  // Home's lecture and exam cards open the Uni view.
+  useEffect(() => {
+    const onView = (e: Event) => setView((e as CustomEvent<View>).detail)
+    window.addEventListener('todo:view', onView)
+    return () => window.removeEventListener('todo:view', onView)
+  }, [])
   const toggleCollapsed = (id: string) => {
     const next = new Set(collapsed)
     if (next.has(id)) next.delete(id)
@@ -73,13 +88,13 @@ export function Todo() {
     <>
       <TopBar title="To-Do" actions={<>
         <IconButton label="Manage lists" onClick={() => setManage(true)}><ListIcon size={22} /></IconButton>
-        <IconButton label="New task" tinted onClick={() => setEditing('new')}><PlusIcon size={22} strokeWidth={2.4} /></IconButton>
+        {view !== 'uni' && <IconButton label="New task" tinted onClick={() => setEditing('new')}><PlusIcon size={22} strokeWidth={2.4} /></IconButton>}
       </>} />
       <Page>
         <Segmented value={view} onChange={setView} options={[
-          { value: 'all', label: 'All' }, { value: 'today', label: 'Today' }, { value: 'upcoming', label: 'Upcoming' },
+          { value: 'all', label: 'All' }, { value: 'today', label: 'Today' }, { value: 'upcoming', label: 'Upcoming' }, { value: 'uni', label: 'Uni' },
         ]} />
-        <QuickAdd listId={targetListId} due={quickDue}
+        {view !== 'uni' && <QuickAdd listId={targetListId} due={quickDue}
           placeholder={view === 'today' ? 'Add for today' : view === 'upcoming' ? 'Add for tomorrow' : `Add to ${targetList?.name ?? 'list'}`}
           prefix={targetList && (
             <button type="button" onClick={cycleTarget} aria-label={`Adding to ${targetList.name}. Tap to change list.`}
@@ -87,7 +102,7 @@ export function Todo() {
               style={{ background: `color-mix(in srgb, ${targetList.color} 18%, transparent)`, color: targetList.color }}>
               <span>{targetList.icon}</span><ChevronDown size={14} strokeWidth={2.6} />
             </button>
-          )} />
+          )} />}
 
         <div key={view} className="animate-page-in flex flex-col gap-3">
           {view === 'all' && lists && (
@@ -107,6 +122,7 @@ export function Todo() {
 
           {view === 'today' && <TodayView tasks={visible} today={today} row={row} />}
           {view === 'upcoming' && <UpcomingView tasks={visible} today={today} row={row} />}
+          {view === 'uni' && <UniView today={today} lists={allLists} onOpenList={(list, rect) => setFocus({ list, rect })} />}
         </div>
       </Page>
 

@@ -10,9 +10,9 @@ export interface Tab {
 }
 
 export const TABS: Tab[] = [
-  { path: '/', label: 'Home', sec: 'home', Icon: HomeIcon },
   { path: '/meds', label: 'Meds', sec: 'meds', Icon: PillIcon },
   { path: '/prayer', label: 'Prayer', sec: 'prayer', Icon: MoonIcon },
+  { path: '/', label: 'Home', sec: 'home', Icon: HomeIcon },
   { path: '/todo', label: 'To-Do', sec: 'todo', Icon: CheckListIcon },
   { path: '/fitness', label: 'Fitness', sec: 'fitness', Icon: DumbbellIcon },
 ]

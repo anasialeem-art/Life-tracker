@@ -1,16 +1,18 @@
 import { useEffect, useState } from 'react'
+import { formatHijri, hijriOf } from '../../lib/hijri'
 import { HIGH_LAT_RULES, METHODS } from '../../lib/prayer'
+import { META, loadQuran } from '../../lib/quran'
 import { navigate } from '../../lib/router'
 import { setSetting, useSettings, type Settings as SettingsShape } from '../../lib/settings'
 import { isStandalone, useOnline, usePersisted } from '../../lib/storage'
 import { useToday } from '../../lib/useToday'
 import {
-  ArchiveIcon, CheckIcon, CheckListIcon, ChevronRight, CompassIcon, DumbbellIcon, FlameIcon, HabitIcon, LocationIcon, MoonIcon,
-  SunIcon, WalletIcon,
+  ArchiveIcon, CheckIcon, CheckListIcon, ChevronRight, CompassIcon, DumbbellIcon, FlameIcon, GraduationIcon, HabitIcon, LocationIcon, MoonIcon,
+  QuranIcon, SunIcon, TrophyIcon, WalletIcon,
 } from '../../components/Icons'
 import { Sheet } from '../../components/Sheet'
 import { TopBar } from '../../components/TopBar'
-import { Group, Page, Row, SectionLabel, Segmented } from '../../components/ui'
+import { Group, Page, Row, SectionLabel, Segmented, Stepper } from '../../components/ui'
 import { SplitEditor } from '../fitness/SplitEditor'
 import { LocationSheet } from '../prayer/LocationSheet'
 import { ListsSheet } from '../todo/ListsSheet'
@@ -94,6 +96,32 @@ export function Settings() {
         </Group>
         <p className="px-4 text-[12px] leading-snug text-muted">The high-latitude rule matters in German summers, when the sky never gets fully dark and Fajr/Isha need an approximation.</p>
 
+        <SectionLabel>Quran & fasting</SectionLabel>
+        <Group>
+          <NumberRow icon={<QuranIcon size={18} />} label="Daily page goal" unit="pages" value={s.quranDailyGoal} onSave={(n) => setSetting('quranDailyGoal', n)} />
+          <Row icon={<TrophyIcon size={18} />} label="Completed khatmas">
+            <Stepper value={s.quranKhatmasCompleted} min={0} max={999} onChange={(n) => setSetting('quranKhatmasCompleted', n)} />
+          </Row>
+          <Row icon={<MoonIcon size={18} />} label="Hijri date adjustment" />
+          <div className="px-3 pb-3">
+            <Segmented size="sm" value={String(s.hijriOffset)} onChange={(v) => setSetting('hijriOffset', parseInt(v, 10))}
+              options={['-2', '-1', '0', '1', '2'].map((v) => ({ value: v, label: v === '0' ? '0' : `${v.startsWith('-') ? '−' + v.slice(1) : '+' + v}` }))} />
+            <p className="px-1 pt-2 text-[12px] leading-snug text-muted">Today is {formatHijri(hijriOf(today, s.hijriOffset))}. Shift by a day or two to match your local moon sighting.</p>
+          </div>
+        </Group>
+
+        <SectionLabel>Uni</SectionLabel>
+        <Group>
+          <Row icon={<GraduationIcon size={18} />} label="Semester starts">
+            <input type="date" value={s.semesterStart ?? ''} onChange={(e) => setSetting('semesterStart', e.target.value || null)} aria-label="Semester start"
+              className="h-10 rounded-xl bg-surface-2 px-2 text-[15px] outline-none" />
+          </Row>
+          <Row icon={<GraduationIcon size={18} />} label="Semester ends">
+            <input type="date" value={s.semesterEnd ?? ''} min={s.semesterStart ?? undefined} onChange={(e) => setSetting('semesterEnd', e.target.value || null)} aria-label="Semester end"
+              className="h-10 rounded-xl bg-surface-2 px-2 text-[15px] outline-none" />
+          </Row>
+        </Group>
+
         <SectionLabel>Fitness</SectionLabel>
         <Group>
           <NumberRow icon={<FlameIcon size={18} />} label="Calorie target" unit="kcal" value={s.kcalTarget} onSave={(n) => setSetting('kcalTarget', n)} />
@@ -126,6 +154,8 @@ export function Settings() {
           <Status label="Installed app" ok={isStandalone()} value={isStandalone() ? 'Yes' : 'Browser tab'} />
           <Status label="Network" ok value={online ? 'Online' : 'Offline'} />
         </Group>
+        <SectionLabel>Credits</SectionLabel>
+        <Credits />
         <p className="px-4 pt-2 text-center text-[12px] text-muted">Life Tracker · everything stays on this phone</p>
       </Page>
 
@@ -146,5 +176,27 @@ function Status({ label, value, ok }: { label: string; value: string; ok: boolea
         <span className={`h-2 w-2 rounded-full ${ok ? 'bg-success' : 'bg-faint'}`} />{value}
       </span>
     </Row>
+  )
+}
+
+/** Sources and licenses. The Tanzil notice is shown verbatim from the bundled text file. */
+function Credits() {
+  const [notice, setNotice] = useState<string[] | null>(null)
+  const [open, setOpen] = useState(false)
+  useEffect(() => {
+    if (open && notice === null) loadQuran().then((q) => setNotice(q?.notice ?? []))
+  }, [open, notice])
+  return (
+    <Group>
+      <Row icon={<QuranIcon size={18} />} label="Quran text: Tanzil.net" detail={open ? 'Hide' : 'Show'} onClick={() => setOpen(!open)} />
+      {open && (
+        <div className="animate-fade-in px-4 py-3 text-[13px] leading-relaxed text-muted">
+          <p className="mb-2">Uthmani text and Madani page data from the Tanzil Project, <a href="https://tanzil.net" className="font-semibold text-accent">tanzil.net</a>, bundled into the app unmodified.</p>
+          {!META && <p>This build doesn’t include the Quran text.</p>}
+          {notice?.length ? <pre className="overflow-x-auto rounded-xl bg-surface-2 p-3 font-sans text-[12px] whitespace-pre-wrap">{notice.join('\n').trim()}</pre> : null}
+        </div>
+      )}
+      <Row label={<span className="text-[14px] text-muted">Amiri Quran font by the Amiri Project (SIL Open Font License 1.1) · Inter font by Rasmus Andersson (SIL OFL 1.1) · Prayer times by adhan-js (MIT)</span>} />
+    </Group>
   )
 }

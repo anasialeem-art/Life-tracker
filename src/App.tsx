@@ -12,6 +12,8 @@ import { Fitness } from './pages/fitness/Fitness'
 import { Meds } from './pages/meds/Meds'
 import { Backup } from './pages/more/Backup'
 import { Habits } from './pages/more/Habits'
+import { ImportantDates } from './pages/more/ImportantDates'
+import { Shopping } from './pages/more/Shopping'
 import { Journal } from './pages/more/Journal'
 import { Money } from './pages/more/Money'
 import { More } from './pages/more/More'
@@ -38,6 +40,8 @@ const PAGES: Record<string, Route> = {
   '/more/journal': { sec: 'journal', render: () => <Journal /> },
   '/more/settings': { sec: 'home', render: () => <Settings /> },
   '/more/backup': { sec: 'home', render: () => <Backup /> },
+  '/more/dates': { sec: 'dates', render: () => <ImportantDates /> },
+  '/more/shopping': { sec: 'shopping', render: () => <Shopping /> },
 }
 
 /** Shows what went wrong instead of a blank screen, with a way out. */

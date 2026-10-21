@@ -185,6 +185,64 @@ export interface JournalEntry {
   updatedAt: number
 }
 
+// ---- Quran --------------------------------------------------------------------
+
+/** A page read: logged by the reader (one per page per day) or entered manually for a physical mushaf. */
+export interface QuranRead {
+  id: string
+  day: DayKey
+  page: number // 1–604
+  source: 'reader' | 'manual'
+  at: number
+}
+
+export interface QuranBookmark { id: string; page: number; createdAt: number }
+
+// ---- Fasting ------------------------------------------------------------------
+
+export type FastType = 'ramadan' | 'sunnah' | 'qada' | 'other'
+export interface Fast { day: DayKey; type: FastType }
+
+// ---- Uni ----------------------------------------------------------------------
+
+export interface Lecture {
+  id: string
+  course: string
+  type: 'lecture' | 'tutorial' | 'lab'
+  weekday: number // 0 = Sunday
+  start: string // HH:MM
+  end: string // HH:MM
+  room: string
+  color: string | null
+}
+
+export interface Exam {
+  id: string
+  course: string
+  type: 'exam' | 'submission'
+  date: DayKey
+  time: string | null
+  room: string
+  /** To-do list holding prep tasks. */
+  listId: string | null
+}
+
+// ---- Important dates & shopping ---------------------------------------------------
+
+export interface ImportantDate {
+  id: string
+  title: string
+  kind: 'birthday' | 'anniversary' | 'other'
+  month: number // 1–12
+  day: number // 1–31
+  /** Optional, for "turns 30" / "5 years". */
+  year: number | null
+}
+
+export interface ShoppingItem { id: string; name: string; checked: boolean; createdAt: number; checkedAt: number | null }
+/** How often an item was added, for the quick re-add chips. Keyed by lower-cased name. */
+export interface ShoppingHistory { key: string; name: string; count: number; lastAt: number }
+
 // ---- Database -------------------------------------------------------------------
 
 export const db = new Dexie('life-tracker') as Dexie & {
@@ -206,6 +264,14 @@ export const db = new Dexie('life-tracker') as Dexie & {
   moneyCategories: EntityTable<MoneyCategory, 'id'>
   expenses: EntityTable<Expense, 'id'>
   journal: EntityTable<JournalEntry, 'day'>
+  quranReads: EntityTable<QuranRead, 'id'>
+  quranBookmarks: EntityTable<QuranBookmark, 'id'>
+  fasts: EntityTable<Fast, 'day'>
+  lectures: EntityTable<Lecture, 'id'>
+  exams: EntityTable<Exam, 'id'>
+  importantDates: EntityTable<ImportantDate, 'id'>
+  shoppingItems: EntityTable<ShoppingItem, 'id'>
+  shoppingHistory: EntityTable<ShoppingHistory, 'key'>
 }
 
 db.version(1).stores({
@@ -230,6 +296,18 @@ db.version(2).stores({
   moneyCategories: 'id, order',
   expenses: 'id, day, categoryId',
   journal: 'day',
+})
+
+// v3 only adds tables; existing ones are untouched, so data from v2 carries over as-is.
+db.version(3).stores({
+  quranReads: 'id, day, page, at',
+  quranBookmarks: 'id, page',
+  fasts: 'day, type',
+  lectures: 'id, weekday',
+  exams: 'id, date',
+  importantDates: 'id',
+  shoppingItems: 'id',
+  shoppingHistory: 'key, count',
 })
 
 /** Tables that are never exported or overwritten by an import. */

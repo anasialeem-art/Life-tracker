@@ -124,3 +124,19 @@ export const ChartIcon = (p: IconProps) => <Icon {...p}><path d="M4 20h16M7 16.5
 export const TrophyIcon = (p: IconProps) => (
   <Icon {...p}><path d="M7.5 4h9v5a4.5 4.5 0 0 1-9 0Z" /><path d="M7.5 6H4.5v1.5a3 3 0 0 0 3 3M16.5 6h3v1.5a3 3 0 0 1-3 3M12 13.5V17M8.5 20.5h7M9.5 17h5v3.5h-5Z" /></Icon>
 )
+export const BookmarkIcon = (p: IconProps & { filled?: boolean }) => {
+  const { filled, ...rest } = p
+  return <Icon {...rest}><path d="M6.5 3.5h11a1 1 0 0 1 1 1V21l-6.5-4.5L5.5 21V4.5a1 1 0 0 1 1-1Z" fill={filled ? 'currentColor' : 'none'} /></Icon>
+}
+export const GraduationIcon = (p: IconProps) => (
+  <Icon {...p}><path d="M2.5 9 12 4.5 21.5 9 12 13.5Z" /><path d="M6.5 11v4.5c0 1.4 2.5 3 5.5 3s5.5-1.6 5.5-3V11M21.5 9v5.5" /></Icon>
+)
+export const CakeIcon = (p: IconProps) => (
+  <Icon {...p}><path d="M4 20.5h16M5 20.5v-7a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v7" /><path d="M5 15.5c1.2 1 2.3 1 3.5 0s2.3-1 3.5 0 2.3 1 3.5 0 2.3-1 3.5 0M12 11.5V8M12 5.5c-.8-.8-.8-1.7 0-2.5.8.8.8 1.7 0 2.5Z" /></Icon>
+)
+export const CartIcon = (p: IconProps) => (
+  <Icon {...p}><path d="M3 4h2.2l2.2 11h10.4l2-8H6.3" /><circle cx="9" cy="19.5" r="1.4" /><circle cx="17" cy="19.5" r="1.4" /></Icon>
+)
+export const MapPinSmallIcon = (p: IconProps) => (
+  <Icon {...p}><path d="M12 20s-5.5-4.6-5.5-9a5.5 5.5 0 0 1 11 0c0 4.4-5.5 9-5.5 9Z" /><circle cx="12" cy="11" r="2" /></Icon>
+)

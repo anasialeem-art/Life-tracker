@@ -2,7 +2,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import type { ReactNode } from 'react'
 import { backupOverdueDays } from '../lib/backup'
 import { db } from '../lib/db'
-import { longDate, weekdayName } from '../lib/day'
+import { daysBetween, longDate, weekdayName } from '../lib/day'
 import { splitFor } from '../lib/fitness'
 import { useNow } from '../lib/hooks'
 import { summarizeDay } from '../lib/meds'
@@ -10,8 +10,9 @@ import { PRAYERS, fmtCountdown, fmtTime, nextPrayer, prayerDayAt, prayerLabel } 
 import { navigate } from '../lib/router'
 import { useSettings, type Settings } from '../lib/settings'
 import { compareTasks, isOverdue } from '../lib/todo'
+import { daysLeftLabel, nextLecture, upcomingExams } from '../lib/uni'
 import { useToday } from '../lib/useToday'
-import { ArchiveIcon, CheckIcon, CheckListIcon, ChevronRight, DumbbellIcon, FlameIcon, GridIcon, LocationIcon, PillIcon } from '../components/Icons'
+import { ArchiveIcon, CalendarIcon, CheckIcon, CheckListIcon, ChevronRight, DumbbellIcon, FlameIcon, GraduationIcon, GridIcon, LocationIcon, PillIcon } from '../components/Icons'
 import { IconButton, TopBar } from '../components/TopBar'
 import { Page, Ring } from '../components/ui'
 
@@ -23,6 +24,13 @@ function greeting(hour: number): string {
 }
 
 const go = (path: string) => () => navigate(path, { replace: true })
+
+/** Opens To-Do on the Uni view (stored first, so it works even before To-Do was ever opened). */
+const goUni = () => {
+  try { localStorage.setItem('todo-view', 'uni') } catch { /* fine: the event below still switches it */ }
+  navigate('/todo', { replace: true })
+  window.dispatchEvent(new CustomEvent('todo:view', { detail: 'uni' }))
+}
 
 /** Read-only overview of the day. Fixed layout; tapping a card opens its tab. */
 export function Home() {
@@ -51,6 +59,12 @@ export function Home() {
           {settings && <PrayerCard settings={settings} />}
           <MedsCard today={today} />
           <TodoCard today={today} />
+          {settings && (
+            <div className="grid grid-cols-2 gap-3">
+              <LectureCard settings={settings} now={now} />
+              <ExamCard today={today} />
+            </div>
+          )}
           {settings && (
             <div className="grid grid-cols-2 gap-3">
               <TrainingCard settings={settings} today={today} />
@@ -233,6 +247,54 @@ function NutritionCard({ settings, today }: { settings: Settings; today: string 
           <span className="text-[11px] font-semibold text-muted">protein</span>
         </div>
       </div>
+    </Tile>
+  )
+}
+
+function LectureCard({ settings, now }: { settings: Settings; now: Date }) {
+  const lectures = useLiveQuery(() => db.lectures.toArray()) ?? []
+  const next = nextLecture(lectures, settings.semesterStart, settings.semesterEnd, now)
+  const today = useToday()
+  return (
+    <Tile sec="todo" onClick={goUni} className="flex min-h-[148px] flex-col">
+      <TileHeader icon={<GraduationIcon size={16} />} title="Next lecture" right={<span />} />
+      {next ? (
+        <>
+          <p className="line-clamp-2 text-[18px] leading-tight font-bold">{next.lecture.course}</p>
+          <div className="mt-auto pt-2">
+            <p className={`text-[14px] font-semibold tabular ${next.now ? 'text-success' : ''}`}>
+              {next.now ? `Now · until ${next.lecture.end}` : `${next.day === today ? 'Today' : daysLeftLabel(next.day, today)} ${next.lecture.start}`}
+            </p>
+            {next.lecture.room && <p className="truncate text-[13px] text-muted">{next.lecture.room}</p>}
+          </div>
+        </>
+      ) : (
+        <p className="text-[14px] text-muted">{lectures.length ? 'No lectures in the next two weeks.' : 'Add your timetable in To-Do → Uni.'}</p>
+      )}
+    </Tile>
+  )
+}
+
+function ExamCard({ today }: { today: string }) {
+  const exams = useLiveQuery(() => db.exams.where('date').aboveOrEqual(today).toArray(), [today]) ?? []
+  const next = upcomingExams(exams, today)[0]
+  const left = next ? daysBetween(today, next.date) : null
+  return (
+    <Tile sec="todo" onClick={goUni} className="flex min-h-[148px] flex-col">
+      <TileHeader icon={<CalendarIcon size={16} />} title={next?.type === 'submission' ? 'Next deadline' : 'Next exam'} right={<span />} />
+      {next ? (
+        <>
+          <p className="line-clamp-2 text-[18px] leading-tight font-bold">{next.course}</p>
+          <div className="mt-auto pt-2">
+            <p className={`text-[22px] leading-none font-bold tabular ${left !== null && left <= 3 ? 'text-danger' : 'text-accent'}`}>
+              {left === 0 ? 'Today' : left === 1 ? 'Tomorrow' : `${left} days`}
+            </p>
+            <p className="text-[13px] text-muted">{left !== null && left > 1 ? `until the ${next.type === 'exam' ? 'exam' : 'deadline'}` : next.type === 'exam' ? 'Exam' : 'Submission due'}</p>
+          </div>
+        </>
+      ) : (
+        <p className="text-[14px] text-muted">No exams or deadlines coming up.</p>
+      )}
     </Tile>
   )
 }

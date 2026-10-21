@@ -1,9 +1,8 @@
 import { useLiveQuery } from 'dexie-react-hooks'
-import { useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { db, type PrayerLog, type PrayerName, type PrayerStatus } from '../../lib/db'
 import { todayKey, type DayKey } from '../../lib/day'
 import { useNow, useSelectedDay } from '../../lib/hooks'
-import { APPS, openApp } from '../../lib/intents'
 import {
   ADHKAR_EXTRAS, PRAYERS, SUNNAH_EXTRAS, fmtCountdown, fmtTime, missedPrayerDays, nextPrayer, prayerDayAt, prayerLabel,
   prayerStreak, qadaCount, qiblaBearing, timesFor, type PrayerConfig,
@@ -11,13 +10,15 @@ import {
 import { setSetting, useSettings } from '../../lib/settings'
 import { DayNav, FutureNotice } from '../../components/DayNav'
 import {
-  CalendarIcon, CheckIcon, CompassIcon, FlameIcon, LocationIcon, MinusIcon, MoonIcon, MosqueIcon, PlusIcon, QuranIcon,
+  CalendarIcon, CheckIcon, CompassIcon, FlameIcon, LocationIcon, MinusIcon, MoonIcon, MosqueIcon, PlusIcon,
   SunIcon, SunriseIcon, SunsetIcon,
 } from '../../components/Icons'
 import { MonthCalendar, monthRange } from '../../components/MonthCalendar'
 import { Sheet, SheetAction } from '../../components/Sheet'
 import { IconButton, TopBar } from '../../components/TopBar'
-import { Button, Card, Chip, EmptyState, Field, Page, SectionLabel, TextInput } from '../../components/ui'
+import { Button, Card, Chip, EmptyState, Field, Page, SectionLabel, Segmented, TextInput } from '../../components/ui'
+import { FastingSection } from './Fasting'
+import { QuranSection } from './Quran'
 import { LocationSheet } from './LocationSheet'
 import { QiblaSheet } from './Qibla'
 
@@ -35,7 +36,53 @@ const STATUS: { value: PrayerStatus; label: string; color: string }[] = [
   { value: 'qada', label: 'Qada', color: 'var(--accent)' },
 ]
 
+type Section = 'prayers' | 'quran' | 'fasting'
+
+function readSection(): Section {
+  try {
+    const s = localStorage.getItem('prayer-section')
+    return s === 'quran' || s === 'fasting' ? s : 'prayers'
+  } catch {
+    return 'prayers'
+  }
+}
+
 export function Prayer() {
+  const [section, setSectionState] = useState<Section>(readSection)
+  const setSection = (s: Section) => {
+    setSectionState(s)
+    window.scrollTo(0, 0)
+    try { localStorage.setItem('prayer-section', s) } catch { /* per-device preference only */ }
+  }
+  return (
+    <>
+      <TopBar title="Prayer" actions={section === 'prayers' ? <PrayerActions /> : null} />
+      <div className="mx-auto max-w-xl px-4 pb-3">
+        <Segmented value={section} onChange={setSection} options={[
+          { value: 'prayers', label: 'Prayers' }, { value: 'quran', label: 'Quran' }, { value: 'fasting', label: 'Fasting' },
+        ]} />
+      </div>
+      <div key={section} className="animate-page-in">
+        {section === 'prayers' && <PrayersSection />}
+        {section === 'quran' && <QuranSection />}
+        {section === 'fasting' && <FastingSection />}
+      </div>
+    </>
+  )
+}
+
+/** Qibla and overview buttons live in the top bar; they talk to the section via these events. */
+function PrayerActions() {
+  const settings = useSettings()
+  return (
+    <>
+      {settings?.prayerLocation && <IconButton label="Qibla" onClick={() => window.dispatchEvent(new Event('prayer:qibla'))}><CompassIcon size={22} /></IconButton>}
+      <IconButton label="Overview" onClick={() => window.dispatchEvent(new Event('prayer:overview'))}><CalendarIcon size={22} /></IconButton>
+    </>
+  )
+}
+
+function PrayersSection() {
   const settings = useSettings()
   const now = useNow(15_000)
   const [locOpen, setLocOpen] = useState(false)
@@ -44,16 +91,22 @@ export function Prayer() {
   const today = settings ? prayerDayAt(settings, now) : todayKey(now)
   const [day, setDay] = useSelectedDay(today)
 
-  if (!settings) return <TopBar title="Prayer" />
+  useEffect(() => {
+    const q = () => setQibla(true)
+    const o = () => setOverview(true)
+    window.addEventListener('prayer:qibla', q)
+    window.addEventListener('prayer:overview', o)
+    return () => {
+      window.removeEventListener('prayer:qibla', q)
+      window.removeEventListener('prayer:overview', o)
+    }
+  }, [])
+
+  if (!settings) return null
   const cfg: PrayerConfig = settings
 
   return (
     <>
-      <TopBar title="Prayer" actions={<>
-        <IconButton label="Open Tarteel" onClick={() => openApp(APPS.tarteel)}><QuranIcon size={22} /></IconButton>
-        {settings.prayerLocation && <IconButton label="Qibla" onClick={() => setQibla(true)}><CompassIcon size={22} /></IconButton>}
-        <IconButton label="Overview" onClick={() => setOverview(true)}><CalendarIcon size={22} /></IconButton>
-      </>} />
       {settings.prayerLocation ? (
         <PrayerBody cfg={cfg} today={today} day={day} setDay={setDay} now={now} qadaBase={settings.qadaBase} trackingStart={settings.prayerTrackingStart}
           onLocation={() => setLocOpen(true)} />

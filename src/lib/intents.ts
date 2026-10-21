@@ -2,7 +2,6 @@
 // fallback when the app isn't installed.
 
 export const APPS = {
-  tarteel: 'com.mmmoussa.iqra',
   lyfta: 'com.lyfta',
 } as const
 

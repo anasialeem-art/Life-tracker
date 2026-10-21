@@ -20,6 +20,16 @@
   unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
 }
 
+/* Quran text (Arabic range only, so Latin UI text is unaffected). SIL Open Font License. */
+@font-face {
+  font-family: "Amiri Quran";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400;
+  src: url("./assets/fonts/amiri-quran-arabic-400-normal.woff2") format("woff2");
+  unicode-range: U+0600-06FF, U+0750-077F, U+0870-088E, U+0890-0891, U+0897-08E1, U+08E3-08FF, U+200C-200E, U+2010-2011, U+204F, U+2E41, U+FB50-FDFF, U+FE70-FE74, U+FE76-FEFC;
+}
+
 /* Semantic color tokens. Components use bg-bg, bg-surface, text-muted, etc. */
 :root {
   --bg: #f2f2f7;
@@ -46,6 +56,10 @@
   --c-journal: #a24fd8;
   --c-kcal: #ff7a1a;
   --c-protein: #2b8cff;
+  --c-dates: #d63a8c;
+  --c-shopping: #b98900;
+  --page: #fbf7ee;
+  --page-ink: #1d1a14;
   color-scheme: light;
 }
 
@@ -74,6 +88,10 @@
   --c-journal: #c27af5;
   --c-kcal: #ff9446;
   --c-protein: #58a6ff;
+  --c-dates: #f06bb2;
+  --c-shopping: #f4c430;
+  --page: #11100d;
+  --page-ink: #ece5d6;
   color-scheme: dark;
 }
 
@@ -88,6 +106,8 @@
 [data-sec="habits"] { --accent: var(--c-habits); }
 [data-sec="money"] { --accent: var(--c-money); }
 [data-sec="journal"] { --accent: var(--c-journal); }
+[data-sec="dates"] { --accent: var(--c-dates); }
+[data-sec="shopping"] { --accent: var(--c-shopping); }
 :root, [data-sec], [style*="--accent"] {
   --accent-soft: color-mix(in srgb, var(--accent) 14%, transparent);
   --danger-soft: color-mix(in srgb, var(--danger) 13%, transparent);
@@ -164,6 +184,7 @@
 @utility pl-safe { padding-left: env(safe-area-inset-left); }
 @utility pr-safe { padding-right: env(safe-area-inset-right); }
 @utility tabular { font-variant-numeric: tabular-nums; }
+@utility font-quran { font-family: "Amiri Quran", "Amiri", serif; }
 @utility no-scrollbar {
   scrollbar-width: none;
   &::-webkit-scrollbar { display: none; }

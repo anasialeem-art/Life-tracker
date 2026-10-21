@@ -33,6 +33,21 @@ export interface Settings {
   cycleAnchors: CycleAnchor[]
   currency: string
   defaultListId: string | null
+  /** Last page open in the Quran reader. */
+  quranLastPage: number
+  quranDailyGoal: number
+  /** Start of the current khatma (epoch ms); pages read since then count towards it. */
+  quranKhatmaStart: number | null
+  quranKhatmasCompleted: number
+  quranFontSize: number
+  /** Days added to the calculated Hijri date to match local moon sighting. */
+  hijriOffset: number
+  /** Fasts owed from before tracking, adjusted manually. */
+  qadaFastBase: number
+  /** First day missed Ramadan fasts count from automatically. */
+  fastingTrackingStart: DayKey | null
+  semesterStart: DayKey | null
+  semesterEnd: DayKey | null
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -50,6 +65,16 @@ export const DEFAULT_SETTINGS: Settings = {
   cycleAnchors: [],
   currency: '€',
   defaultListId: null,
+  quranLastPage: 1,
+  quranDailyGoal: 4,
+  quranKhatmaStart: null,
+  quranKhatmasCompleted: 0,
+  quranFontSize: 26,
+  hijriOffset: 0,
+  qadaFastBase: 0,
+  fastingTrackingStart: null,
+  semesterStart: null,
+  semesterEnd: null,
 }
 
 export async function getSetting<K extends keyof Settings>(key: K): Promise<Settings[K]> {
