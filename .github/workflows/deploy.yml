@@ -1,4 +1,4 @@
-name: Deploy to GitHub Pages
+name: Build website and Android app
 
 on:
   push:
@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write # the Android job publishes a release (and stores the encrypted signing key once)
   pages: write
   id-token: write
 
@@ -29,10 +29,18 @@ jobs:
       # Tajweed mushaf page layout (QUL open data); the fonts are fetched by the phone itself.
       - run: node --experimental-sqlite scripts/fetch-mushaf.mjs --strict
       - run: npm test
+      # One build number for the website and the APK, shown in Settings.
       - run: npm run build
+        env:
+          APP_BUILD: ${{ github.run_number }}
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: web-build
+          path: dist
+          retention-days: 3
 
   deploy:
     needs: build
@@ -43,3 +51,82 @@ jobs:
     steps:
       - id: deployment
         uses: actions/deploy-pages@v4
+
+  # The Android app: the same web build wrapped with Capacitor, signed, and published as a release.
+  android:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - uses: actions/download-artifact@v4
+        with:
+          name: web-build
+          path: dist
+      - run: npx cap sync android
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: gradle
+
+      # The signing key lives in the repo only encrypted with ANDROID_SIGNING_PASSWORD (a repository
+      # secret you choose). The first run creates the key and commits the encrypted file.
+      - name: Signing key
+        env:
+          PASS: ${{ secrets.ANDROID_SIGNING_PASSWORD }}
+        run: |
+          if [ -z "$PASS" ]; then
+            echo "::error title=Signing password missing::Add the repository secret ANDROID_SIGNING_PASSWORD (README, Android app), then re-run this workflow."
+            exit 1
+          fi
+          if [ ${#PASS} -lt 12 ]; then
+            echo "::error title=Signing password too short::ANDROID_SIGNING_PASSWORD needs at least 12 characters."
+            exit 1
+          fi
+          ENC=android/signing/release.jks.enc
+          KEY="$RUNNER_TEMP/release.jks"
+          if [ -f "$ENC" ]; then
+            if ! openssl enc -d -aes-256-cbc -pbkdf2 -iter 600000 -in "$ENC" -out "$KEY" -pass env:PASS; then
+              echo "::error title=Wrong signing password::ANDROID_SIGNING_PASSWORD does not unlock $ENC. Set it back to the password used before; a new key could not update the installed app."
+              exit 1
+            fi
+          else
+            keytool -genkeypair -keystore "$KEY" -alias lifetracker -keyalg RSA -keysize 4096 -validity 36500 \
+              -storepass "$PASS" -keypass "$PASS" -dname "CN=Life Tracker, O=Anas Aleem, C=DE"
+            mkdir -p android/signing
+            openssl enc -aes-256-cbc -pbkdf2 -iter 600000 -salt -in "$KEY" -out "$ENC" -pass env:PASS
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add "$ENC"
+            git commit -m "Add encrypted Android signing key"
+            git pull --rebase origin main
+            git push origin HEAD:main
+            echo "::notice title=Signing key created::A new signing key was created and stored encrypted in $ENC."
+          fi
+          echo "ANDROID_KEYSTORE_PATH=$KEY" >> "$GITHUB_ENV"
+
+      - name: Build APK
+        working-directory: android
+        env:
+          VERSION_CODE: ${{ github.run_number }}
+          VERSION_NAME: build-${{ github.run_number }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_SIGNING_PASSWORD }}
+          ANDROID_KEY_ALIAS: lifetracker
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_SIGNING_PASSWORD }}
+        run: ./gradlew assembleRelease --no-daemon
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cp android/app/build/outputs/apk/release/app-release.apk life-tracker.apk
+          gh release create "apk-${{ github.run_number }}" life-tracker.apk \
+            --target "${{ github.sha }}" --latest \
+            --title "Life Tracker build ${{ github.run_number }}" \
+            --notes "Install on your phone: tap life-tracker.apk below, then Install. It updates the app in place and keeps your data."
+          echo "::notice title=APK published::https://github.com/${{ github.repository }}/releases/tag/apk-${{ github.run_number }}"

@@ -140,3 +140,12 @@ export const CartIcon = (p: IconProps) => (
 export const MapPinSmallIcon = (p: IconProps) => (
   <Icon {...p}><path d="M12 20s-5.5-4.6-5.5-9a5.5 5.5 0 0 1 11 0c0 4.4-5.5 9-5.5 9Z" /><circle cx="12" cy="11" r="2" /></Icon>
 )
+export const SyncIcon = (p: IconProps) => (
+  <Icon {...p}><path d="M19.5 12a7.5 7.5 0 0 1-13.2 4.9M4.5 12a7.5 7.5 0 0 1 13.2-4.9" /><path d="M18 3.5v3.8h-3.8M6 20.5v-3.8h3.8" /></Icon>
+)
+export const PhoneIcon = (p: IconProps) => (
+  <Icon {...p}><rect x="6.5" y="2.5" width="11" height="19" rx="2.6" /><path d="M10.5 18.5h3" /></Icon>
+)
+export const AlertIcon = (p: IconProps) => (
+  <Icon {...p}><path d="M12 4 2.8 19.5h18.4Z" /><path d="M12 10v4.2" /><circle cx="12" cy="17" r=".6" fill="currentColor" /></Icon>
+)

@@ -1,5 +1,6 @@
 import { db, getMeta, LOCAL_ONLY_TABLES, setMeta } from './db'
 import { calendarKey } from './day'
+import { isNativeApp } from './native'
 
 export const BACKUP_APP_ID = 'life-tracker'
 export const BACKUP_REMINDER_DAYS = 14
@@ -35,6 +36,7 @@ export type ExportResult = 'shared' | 'downloaded' | 'cancelled'
  */
 export async function exportBackup(mode: 'share' | 'download'): Promise<ExportResult> {
   const data = await buildBackup()
+  if (isNativeApp()) return exportNative(JSON.stringify(data, null, 2), mode)
   const file = new File([JSON.stringify(data, null, 2)], backupFileName(), { type: 'application/json' })
 
   if (mode === 'share' && navigator.canShare?.({ files: [file] })) {
@@ -60,7 +62,30 @@ export async function exportBackup(mode: 'share' | 'download'): Promise<ExportRe
   return 'downloaded'
 }
 
+/** Folder in the phone's Documents where the Android app saves backups. */
+export const NATIVE_BACKUP_DIR = 'Life Tracker'
+
+/** The Android WebView has no Web Share or downloads, so the app writes the file itself. */
+async function exportNative(json: string, mode: 'share' | 'download'): Promise<ExportResult> {
+  const { Filesystem, Directory, Encoding } = await import('@capacitor/filesystem')
+  if (mode === 'download') {
+    await Filesystem.writeFile({ path: `${NATIVE_BACKUP_DIR}/${backupFileName()}`, data: json, directory: Directory.Documents, encoding: Encoding.UTF8, recursive: true })
+  } else {
+    const { uri } = await Filesystem.writeFile({ path: backupFileName(), data: json, directory: Directory.Cache, encoding: Encoding.UTF8 })
+    const { Share } = await import('@capacitor/share')
+    try {
+      await Share.share({ title: 'Life Tracker backup', files: [uri] })
+    } catch (e) {
+      if (/cancel/i.test((e as Error).message ?? '')) return 'cancelled'
+      throw e
+    }
+  }
+  await setMeta('lastBackupAt', Date.now())
+  return mode === 'share' ? 'shared' : 'downloaded'
+}
+
 export function canShareFiles(): boolean {
+  if (isNativeApp()) return true
   try {
     const probe = new File(['{}'], 'probe.json', { type: 'application/json' })
     return !!navigator.canShare?.({ files: [probe] })

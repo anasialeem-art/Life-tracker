@@ -147,7 +147,7 @@ export interface LyftaSet {
   reps: number
 }
 
-// ---- Habits, Money, Journal -----------------------------------------------------
+// ---- Habits, Journal -------------------------------------------------------------
 
 export type HabitFrequency =
   | { type: 'daily' }
@@ -165,18 +165,6 @@ export interface Habit {
 }
 
 export interface HabitCheck { id: string; habitId: string; day: DayKey }
-
-export interface MoneyCategory { id: string; name: string; icon: string; order: number }
-
-export interface Expense {
-  id: string
-  day: DayKey
-  categoryId: string
-  description: string
-  /** Minor units (cents) to avoid float rounding. */
-  amount: number
-  createdAt: number
-}
 
 export interface JournalEntry {
   day: DayKey
@@ -243,6 +231,48 @@ export interface ShoppingItem { id: string; name: string; checked: boolean; crea
 /** How often an item was added, for the quick re-add chips. Keyed by lower-cased name. */
 export interface ShoppingHistory { key: string; name: string; count: number; lastAt: number }
 
+// ---- Finance ------------------------------------------------------------------
+
+/** Spending categories in display order, then the two kinds that never count as spending. */
+export type FinCategory = 'groceries' | 'food' | 'subscriptions' | 'gym' | 'other' | 'income' | 'transfer'
+
+/** One booked transaction from the bank. Never deleted or rewritten by a sync, only added. */
+export interface FinTx {
+  /** Hash of date, amount, payee and purpose (plus a same-day repeat counter); doubles as the dedupe key. */
+  id: string
+  /** Booking date (calendar day, no 05:00 rollover). */
+  day: DayKey
+  month: string // YYYY-MM
+  /** Cents; negative is money going out. */
+  amount: number
+  payee: string
+  payeeIban: string
+  purpose: string
+  /** null = not categorised yet. */
+  category: FinCategory | null
+  /** Who set the category: a rule, the built-in income/transfer detection, or the user by hand (never overwritten). */
+  categorySource: 'rule' | 'auto' | 'manual' | null
+  note: string
+  syncedAt: number
+}
+
+export interface FinRule {
+  id: string
+  field: 'payee' | 'purpose' | 'any'
+  /** Case-insensitive substring. */
+  contains: string
+  category: FinCategory
+  /** Lower runs first; rules made from a correction go to the top. */
+  order: number
+  createdAt: number
+}
+
+/** Booked balance as reported by the bank at a sync. */
+export interface FinBalance { day: DayKey; amount: number; at: number }
+
+/** A detected subscription the user removed from the list. */
+export interface FinIgnoredSub { key: string }
+
 // ---- Database -------------------------------------------------------------------
 
 export const db = new Dexie('life-tracker') as Dexie & {
@@ -261,8 +291,6 @@ export const db = new Dexie('life-tracker') as Dexie & {
   lyftaSets: EntityTable<LyftaSet, 'id'>
   habits: EntityTable<Habit, 'id'>
   habitChecks: EntityTable<HabitCheck, 'id'>
-  moneyCategories: EntityTable<MoneyCategory, 'id'>
-  expenses: EntityTable<Expense, 'id'>
   journal: EntityTable<JournalEntry, 'day'>
   quranReads: EntityTable<QuranRead, 'id'>
   quranBookmarks: EntityTable<QuranBookmark, 'id'>
@@ -272,6 +300,10 @@ export const db = new Dexie('life-tracker') as Dexie & {
   importantDates: EntityTable<ImportantDate, 'id'>
   shoppingItems: EntityTable<ShoppingItem, 'id'>
   shoppingHistory: EntityTable<ShoppingHistory, 'key'>
+  finTx: EntityTable<FinTx, 'id'>
+  finRules: EntityTable<FinRule, 'id'>
+  finBalances: EntityTable<FinBalance, 'day'>
+  finIgnoredSubs: EntityTable<FinIgnoredSub, 'key'>
 }
 
 db.version(1).stores({
@@ -310,6 +342,16 @@ db.version(3).stores({
   shoppingHistory: 'key, count',
 })
 
+// v4 replaces the old manual money tracker with the bank-synced Finance section (a fresh start, by request).
+db.version(4).stores({
+  moneyCategories: null,
+  expenses: null,
+  finTx: 'id, day, month, category',
+  finRules: 'id, order',
+  finBalances: 'day',
+  finIgnoredSubs: 'key',
+})
+
 /** Tables that are never exported or overwritten by an import. */
 export const LOCAL_ONLY_TABLES = new Set(['meta'])
 
@@ -323,22 +365,18 @@ export async function setMeta(key: string, value: unknown): Promise<void> {
   await db.meta.put({ key, value })
 }
 
-/** First-run setup: records first use (for the backup reminder) and seeds starter lists and categories. */
+/** First-run setup: records first use (for the backup reminder) and seeds starter lists. */
 export async function ensureFirstUse(): Promise<void> {
   if ((await getMeta('firstUsedAt')) === undefined) await setMeta('firstUsedAt', Date.now())
   // Separate flag: phones that first ran the step-1 shell already have firstUsedAt.
   if (await getMeta('seededStarters')) return
   await setMeta('seededStarters', true)
-  await db.transaction('rw', db.todoLists, db.moneyCategories, async () => {
+  await db.transaction('rw', db.todoLists, async () => {
     if ((await db.todoLists.count()) === 0) {
       await db.todoLists.bulkAdd([
         { id: uid(), name: 'Personal', color: '#0a84ff', icon: '🏠', order: 0, archived: false },
         { id: uid(), name: 'Work', color: '#ff9f0a', icon: '💼', order: 1, archived: false },
       ])
-    }
-    if ((await db.moneyCategories.count()) === 0) {
-      const cats = [['Groceries', '🛒'], ['Eating out', '🍔'], ['Transport', '🚆'], ['Shopping', '🛍️'], ['Bills', '🧾'], ['Other', '📦']]
-      await db.moneyCategories.bulkAdd(cats.map(([name, icon], order) => ({ id: uid(), name, icon, order })))
     }
   })
 }

@@ -4,13 +4,12 @@ import { daysUntil } from '../../lib/dates'
 import { db } from '../../lib/db'
 import { habitShownOn } from '../../lib/habits'
 import { navigate } from '../../lib/router'
-import { useSetting } from '../../lib/settings'
 import { useToday } from '../../lib/useToday'
 import { ArchiveIcon, BookIcon, CakeIcon, CartIcon, GearIcon, HabitIcon, WalletIcon } from '../../components/Icons'
 import { TopBar } from '../../components/TopBar'
 import { Page } from '../../components/ui'
 import { MOODS } from './Journal'
-import { formatMoney } from './Money'
+import { formatEUR } from '../../lib/finance'
 
 function Tile({ path, label, sec, icon, detail, wide }: { path: string; label: string; sec: string; icon: ReactNode; detail?: ReactNode; wide?: boolean }) {
   return (
@@ -27,10 +26,9 @@ function Tile({ path, label, sec, icon, detail, wide }: { path: string; label: s
 
 export function More() {
   const today = useToday()
-  const currency = useSetting('currency')
   const habits = useLiveQuery(() => db.habits.toArray()) ?? []
   const checks = useLiveQuery(() => db.habitChecks.where('day').equals(today).count(), [today]) ?? 0
-  const month = useLiveQuery(() => db.expenses.where('day').startsWith(today.slice(0, 7)).toArray(), [today]) ?? []
+  const balance = useLiveQuery(() => db.finBalances.orderBy('day').last())
   const journal = useLiveQuery(() => db.journal.get(today), [today])
   const dates = useLiveQuery(() => db.importantDates.toArray()) ?? []
   const shoppingLeft = useLiveQuery(() => db.shoppingItems.filter((i) => !i.checked).count()) ?? 0
@@ -45,7 +43,7 @@ export function More() {
       <Page>
         <div className="stagger grid grid-cols-2 gap-3">
           <Tile path="/more/habits" label="Habits" sec="habits" icon={<HabitIcon />} detail={shown ? `${Math.min(checks, shown)} of ${shown} today` : 'Build routines'} />
-          <Tile path="/more/money" label="Money" sec="money" icon={<WalletIcon />} detail={`${formatMoney(month.reduce((n, e) => n + e.amount, 0), currency)} this month`} />
+          <Tile path="/more/finance" label="Finance" sec="finance" icon={<WalletIcon />} detail={balance ? `${formatEUR(balance.amount)} balance` : 'Commerzbank sync'} />
           <Tile path="/more/journal" label="Journal" sec="journal" icon={<BookIcon />} detail={mood ? `${mood.emoji} ${mood.label} today` : journal?.text ? 'Written today' : 'How was today?'} />
           <Tile path="/more/dates" label="Important Dates" sec="dates" icon={<CakeIcon />}
             detail={nextDate ? `${nextDate.title} ${nextIn === 0 ? 'today 🎉' : nextIn === 1 ? 'tomorrow' : `in ${nextIn} days`}` : 'Birthdays & anniversaries'} />

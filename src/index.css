@@ -52,7 +52,7 @@
   --c-todo: #f08800;
   --c-fitness: #f2295b;
   --c-habits: #22a957;
-  --c-money: #0b98d4;
+  --c-finance: #0b98d4;
   --c-journal: #a24fd8;
   --c-kcal: #ff7a1a;
   --c-protein: #2b8cff;
@@ -84,7 +84,7 @@
   --c-todo: #ffa223;
   --c-fitness: #ff4f78;
   --c-habits: #35d06e;
-  --c-money: #3cc1ff;
+  --c-finance: #3cc1ff;
   --c-journal: #c27af5;
   --c-kcal: #ff9446;
   --c-protein: #58a6ff;
@@ -104,7 +104,7 @@
 [data-sec="todo"] { --accent: var(--c-todo); }
 [data-sec="fitness"] { --accent: var(--c-fitness); }
 [data-sec="habits"] { --accent: var(--c-habits); }
-[data-sec="money"] { --accent: var(--c-money); }
+[data-sec="finance"] { --accent: var(--c-finance); }
 [data-sec="journal"] { --accent: var(--c-journal); }
 [data-sec="dates"] { --accent: var(--c-dates); }
 [data-sec="shopping"] { --accent: var(--c-shopping); }
@@ -220,6 +220,10 @@
   from { opacity: 0; transform: translateY(16px) scale(0.96); }
   to { opacity: 1; transform: none; }
 }
+@keyframes halo {
+  0% { transform: scale(0.85); opacity: 0.9; }
+  100% { transform: scale(1.3); opacity: 0; }
+}
 @keyframes pulse-dot {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.35; }
@@ -241,6 +245,7 @@
 @utility animate-rise-in { animation: rise-in 360ms cubic-bezier(.16,1,.3,1) backwards; }
 @utility animate-toast-in { animation: toast-in 320ms cubic-bezier(.16,1,.3,1) both; }
 @utility animate-pulse-dot { animation: pulse-dot 1.6s ease-in-out infinite; }
+@utility animate-halo { animation: halo 1.8s cubic-bezier(.2,.8,.2,1) infinite; }
 
 /* Staggered entrance for card stacks. */
 .stagger > * { animation: rise-in 420ms cubic-bezier(.16,1,.3,1) backwards; }

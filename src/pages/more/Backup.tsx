@@ -1,9 +1,10 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useRef, useState } from 'react'
 import {
-  BACKUP_REMINDER_DAYS, canShareFiles, exportBackup, readBackupFile, restoreBackup, summarize, type BackupFile,
+  BACKUP_REMINDER_DAYS, NATIVE_BACKUP_DIR, canShareFiles, exportBackup, readBackupFile, restoreBackup, summarize, type BackupFile,
 } from '../../lib/backup'
 import { getMeta } from '../../lib/db'
+import { isNativeApp } from '../../lib/native'
 import { ArchiveIcon, DownloadIcon, ShareIcon, UploadIcon } from '../../components/Icons'
 import { Sheet } from '../../components/Sheet'
 import { TopBar } from '../../components/TopBar'
@@ -24,7 +25,7 @@ export function Backup() {
     setMessage(null)
     try {
       const result = await exportBackup(mode)
-      if (result !== 'cancelled') setMessage({ text: result === 'shared' ? 'Backup shared.' : 'Backup saved to Downloads.' })
+      if (result !== 'cancelled') setMessage({ text: result === 'shared' ? 'Backup shared.' : isNativeApp() ? `Backup saved to Documents/${NATIVE_BACKUP_DIR}.` : 'Backup saved to Downloads.' })
     } catch (e) {
       setMessage({ text: `Export failed: ${(e as Error).message}`, error: true })
     }

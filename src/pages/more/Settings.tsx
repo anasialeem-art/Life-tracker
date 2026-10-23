@@ -4,11 +4,13 @@ import { HIGH_LAT_RULES, METHODS } from '../../lib/prayer'
 import { META, loadQuran } from '../../lib/quran'
 import { navigate } from '../../lib/router'
 import { setSetting, useSettings, type Settings as SettingsShape } from '../../lib/settings'
+import { isNativeApp } from '../../lib/native'
 import { isStandalone, useOnline, usePersisted } from '../../lib/storage'
+import { RELEASES_URL, checkForUpdate, type UpdateInfo } from '../../lib/update'
 import { useToday } from '../../lib/useToday'
 import {
   ArchiveIcon, CheckIcon, CheckListIcon, ChevronRight, CompassIcon, DumbbellIcon, FlameIcon, GraduationIcon, HabitIcon, LocationIcon, MoonIcon,
-  QuranIcon, SunIcon, TrophyIcon, WalletIcon,
+  QuranIcon, SunIcon, TrophyIcon,
 } from '../../components/Icons'
 import { Sheet } from '../../components/Sheet'
 import { TopBar } from '../../components/TopBar'
@@ -16,9 +18,6 @@ import { Group, Page, Row, SectionLabel, Segmented, Stepper } from '../../compon
 import { SplitEditor } from '../fitness/SplitEditor'
 import { LocationSheet } from '../prayer/LocationSheet'
 import { ListsSheet } from '../todo/ListsSheet'
-import { CategoriesSheet } from './Money'
-
-const CURRENCIES = ['€', '$', '£', 'CHF', 'PKR', 'Rs', 'AED', 'SAR', 'TRY']
 
 function Picker<T extends string>({ open, onClose, title, options, value, onPick }: {
   open: boolean
@@ -69,8 +68,10 @@ export function Settings() {
   const today = useToday()
   const persisted = usePersisted()
   const online = useOnline()
-  const offlineReady = !!navigator.serviceWorker?.controller
-  const [open, setOpen] = useState<null | 'location' | 'method' | 'highlat' | 'split' | 'lists' | 'categories'>(null)
+  const native = isNativeApp()
+  // The Android app carries its files inside the APK, so it is always ready offline.
+  const offlineReady = native || !!navigator.serviceWorker?.controller
+  const [open, setOpen] = useState<null | 'location' | 'method' | 'highlat' | 'split' | 'lists'>(null)
   const close = () => setOpen(null)
   if (!s) return <TopBar title="Settings" backTo="/more" />
 
@@ -132,17 +133,10 @@ export function Settings() {
           <Row icon={<DumbbellIcon size={18} />} label="Split & mode" detail={s.splitMode === 'weekday' ? 'Weekdays' : 'Cycle'} onClick={() => setOpen('split')}><ChevronRight size={18} className="text-faint" /></Row>
         </Group>
 
-        <SectionLabel>Lists & categories</SectionLabel>
+        <SectionLabel>Lists</SectionLabel>
         <Group>
           <Row icon={<CheckListIcon size={18} />} label="To-do lists" onClick={() => setOpen('lists')}><ChevronRight size={18} className="text-faint" /></Row>
           <Row icon={<HabitIcon size={18} />} label="Habits" onClick={() => navigate('/more/habits')}><ChevronRight size={18} className="text-faint" /></Row>
-          <Row icon={<WalletIcon size={18} />} label="Money categories" onClick={() => setOpen('categories')}><ChevronRight size={18} className="text-faint" /></Row>
-          <Row icon={<WalletIcon size={18} />} label="Currency">
-            <select value={s.currency} onChange={(e) => setSetting('currency', e.target.value)} aria-label="Currency"
-              className="h-10 rounded-xl bg-surface-2 px-3 text-[16px] font-semibold outline-none">
-              {CURRENCIES.map((c) => <option key={c} value={c}>{c}</option>)}
-            </select>
-          </Row>
         </Group>
 
         <SectionLabel>Data</SectionLabel>
@@ -152,10 +146,12 @@ export function Settings() {
 
         <SectionLabel>App status</SectionLabel>
         <Group>
-          <Status label="Works offline" ok={offlineReady} value={offlineReady ? 'Ready' : 'Not yet cached'} />
+          <Status label="Works offline" ok={offlineReady} value={native ? 'Built in' : offlineReady ? 'Ready' : 'Not yet cached'} />
           <Status label="Persistent storage" ok={!!persisted} value={persisted == null ? '…' : persisted ? 'Granted' : 'Not granted'} />
-          <Status label="Installed app" ok={isStandalone()} value={isStandalone() ? 'Yes' : 'Browser tab'} />
+          <Status label="Installed app" ok={native || isStandalone()} value={native ? 'Android app' : isStandalone() ? 'Yes' : 'Browser tab'} />
           <Status label="Network" ok value={online ? 'Online' : 'Offline'} />
+          <Row label="Version" detail={__APP_BUILD__ === 'dev' ? 'Development' : `Build ${__APP_BUILD__}`} />
+          {native && <UpdateRow />}
         </Group>
         <SectionLabel>Credits</SectionLabel>
         <Credits />
@@ -167,8 +163,30 @@ export function Settings() {
       <Picker open={open === 'highlat'} onClose={close} title="High-latitude rule" options={HIGH_LAT_RULES} value={s.highLatRule} onPick={(v) => setSetting('highLatRule', v)} />
       <SplitEditor open={open === 'split'} onClose={close} today={today} />
       <ListsSheet open={open === 'lists'} onClose={close} />
-      <CategoriesSheet open={open === 'categories'} onClose={close} />
     </>
+  )
+}
+
+/** Android app only: compares this build with the newest APK on the Releases page. */
+function UpdateRow() {
+  const [state, setState] = useState<'idle' | 'checking' | 'current' | 'failed' | UpdateInfo>('idle')
+  const check = async () => {
+    setState('checking')
+    const r = await checkForUpdate()
+    setState(r ?? 'failed')
+  }
+  if (typeof state === 'object') {
+    return (
+      <Row label={`Build ${state.build} is available`}>
+        <a href={state.apkUrl} target="_blank" rel="noreferrer" className="pressable rounded-full bg-accent px-3.5 py-2 text-[14px] font-semibold text-white">Download</a>
+      </Row>
+    )
+  }
+  return (
+    <Row label="Updates" onClick={state === 'checking' ? undefined : check}
+      detail={state === 'checking' ? 'Checking…' : state === 'current' ? 'Up to date' : state === 'failed' ? 'Could not check' : 'Check now'}>
+      {state === 'failed' && <a href={RELEASES_URL} target="_blank" rel="noreferrer" className="text-[14px] font-semibold text-accent" onClick={(e) => e.stopPropagation()}>Open</a>}
+    </Row>
   )
 }
 
@@ -200,7 +218,7 @@ function Credits() {
         </div>
       )}
       <Row label={<span className="text-[14px] text-muted">Tajweed mushaf: KFGQPC V4 (1441H) page fonts, surah-name and frame fonts © King Fahd Glorious Qur’an Printing Complex (all rights reserved; free for non-commercial, charitable use, not for sale), tajweed colour features by Ayman, Rania, Syeds, Naveed, Zahid, Tooba and Anza (Sadaqa-e-Jaria), published by the Quranic Universal Library (qul.tarteel.ai) and downloaded from it onto this phone. Page layout: QUL’s open data (mushaf layout 19). Rendering follows tlawat/remotion-mushaf-line (MIT).</span>} />
-      <Row label={<span className="text-[14px] text-muted">Amiri Quran font by the Amiri Project (SIL Open Font License 1.1) · Inter font by Rasmus Andersson (SIL OFL 1.1) · Prayer times by adhan-js (MIT)</span>} />
+      <Row label={<span className="text-[14px] text-muted">Amiri Quran font by the Amiri Project (SIL Open Font License 1.1) · Inter font by Rasmus Andersson (SIL OFL 1.1) · Prayer times by adhan-js (MIT) · Bank sync by lib-fints (LGPL-2.1) · Android app by Capacitor (MIT)</span>} />
     </Group>
   )
 }

@@ -31,7 +31,6 @@ export interface Settings {
   /** Weekday (0 = Sunday) → split day id. */
   weekdayPlan: Record<string, string | null>
   cycleAnchors: CycleAnchor[]
-  currency: string
   defaultListId: string | null
   /** Last page open in the Quran reader. */
   quranLastPage: number
@@ -50,6 +49,15 @@ export interface Settings {
   fastingTrackingStart: DayKey | null
   semesterStart: DayKey | null
   semesterEnd: DayKey | null
+  /** FinTS product registration number from the Deutsche Kreditwirtschaft, entered by the user. */
+  finProductId: string
+  /** Monthly limit per spending category in cents; 0 = no limit. Resets every month, no rollover. */
+  finLimits: Record<string, number>
+  /** IBANs of the user's other accounts, so money moved there counts as a transfer. */
+  finOwnIbans: string[]
+  /** TAN method picked by hand; null = the bank's two-step method chosen automatically. */
+  finTanMethodId: number | null
+  finLastSyncAt: number | null
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -65,7 +73,6 @@ export const DEFAULT_SETTINGS: Settings = {
   splitMode: 'weekday',
   weekdayPlan: {},
   cycleAnchors: [],
-  currency: '€',
   defaultListId: null,
   quranLastPage: 1,
   quranDailyGoal: 4,
@@ -78,6 +85,11 @@ export const DEFAULT_SETTINGS: Settings = {
   fastingTrackingStart: null,
   semesterStart: null,
   semesterEnd: null,
+  finProductId: '',
+  finLimits: {},
+  finOwnIbans: [],
+  finTanMethodId: null,
+  finLastSyncAt: null,
 }
 
 export async function getSetting<K extends keyof Settings>(key: K): Promise<Settings[K]> {

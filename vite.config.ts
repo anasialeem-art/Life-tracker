@@ -8,6 +8,8 @@ export default defineConfig({
   base: './',
   // One precached bundle is fine: everything is cached on the phone after first load.
   build: { chunkSizeWarningLimit: 800 },
+  // Build number shown in Settings; CI sets it so an updated APK is easy to recognise.
+  define: { __APP_BUILD__: JSON.stringify(process.env.APP_BUILD ?? 'dev') },
   plugins: [
     react(),
     tailwindcss(),

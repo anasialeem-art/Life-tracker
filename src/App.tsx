@@ -2,12 +2,16 @@ import { Component, useEffect, useLayoutEffect, useRef, useState, type ReactNode
 import { ensureFirstUse } from './lib/db'
 import { usePath } from './lib/router'
 import { SettingsContext, useSettingsQuery } from './lib/settings'
+import { isNativeApp, setupNativeBack } from './lib/native'
 import { requestPersistentStorage } from './lib/storage'
 import { storedTheme, useApplyTheme } from './lib/theme'
 import { TabBar } from './components/TabBar'
 import { SectionContext } from './components/ui'
 import { UpdatePrompt } from './components/UpdatePrompt'
 import { Home } from './pages/Home'
+import { Finance } from './pages/finance/Finance'
+import { FinanceSettings } from './pages/finance/FinanceSettings'
+import { Rules } from './pages/finance/Rules'
 import { Fitness } from './pages/fitness/Fitness'
 import { Meds } from './pages/meds/Meds'
 import { Backup } from './pages/more/Backup'
@@ -15,7 +19,6 @@ import { Habits } from './pages/more/Habits'
 import { ImportantDates } from './pages/more/ImportantDates'
 import { Shopping } from './pages/more/Shopping'
 import { Journal } from './pages/more/Journal'
-import { Money } from './pages/more/Money'
 import { More } from './pages/more/More'
 import { Settings } from './pages/more/Settings'
 import { Prayer } from './pages/prayer/Prayer'
@@ -36,7 +39,9 @@ const TABS: Record<string, Route> = {
 const PAGES: Record<string, Route> = {
   '/more': { sec: 'home', render: () => <More /> },
   '/more/habits': { sec: 'habits', render: () => <Habits /> },
-  '/more/money': { sec: 'money', render: () => <Money /> },
+  '/more/finance': { sec: 'finance', render: () => <Finance /> },
+  '/more/finance/settings': { sec: 'finance', render: () => <FinanceSettings /> },
+  '/more/finance/rules': { sec: 'finance', render: () => <Rules /> },
   '/more/journal': { sec: 'journal', render: () => <Journal /> },
   '/more/settings': { sec: 'home', render: () => <Settings /> },
   '/more/backup': { sec: 'home', render: () => <Backup /> },
@@ -74,6 +79,7 @@ export default function App() {
   useEffect(() => {
     requestPersistentStorage()
     ensureFirstUse()
+    setupNativeBack()
   }, [])
 
   const isTab = path in TABS
@@ -111,7 +117,8 @@ export default function App() {
         <div data-sec={page?.sec ?? TABS[activeTab ?? '/'].sec}>
           <TabBar path={path} />
         </div>
-        <UpdatePrompt />
+        {/* The Android app ships its files inside the APK; a service worker there would only serve stale copies after an update. */}
+        {!isNativeApp() && <UpdatePrompt />}
       </div>
     </SettingsContext.Provider>
   )

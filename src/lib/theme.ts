@@ -1,4 +1,6 @@
+import { SystemBars, SystemBarsStyle } from '@capacitor/core'
 import { useEffect } from 'react'
+import { isNativeApp } from './native'
 import type { Settings } from './settings'
 
 type Theme = Settings['theme']
@@ -12,6 +14,8 @@ function apply(theme: Theme) {
   document.documentElement.classList.toggle('dark', dark)
   // Keeps the Android status bar matching the app background.
   document.querySelector('meta[name="theme-color"]')?.setAttribute('content', dark ? THEME_COLORS.dark : THEME_COLORS.light)
+  // In the Android app the status bar draws over the page, so its icons follow the theme.
+  if (isNativeApp()) SystemBars.setStyle({ style: dark ? SystemBarsStyle.Dark : SystemBarsStyle.Light }).catch(() => {})
   // Mirror to localStorage so index.html can apply it before first paint.
   try {
     localStorage.setItem('theme', theme)
