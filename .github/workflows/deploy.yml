@@ -81,8 +81,9 @@ jobs:
           PASS: ${{ secrets.ANDROID_SIGNING_PASSWORD }}
         run: |
           if [ -z "$PASS" ]; then
-            echo "::error title=Signing password missing::Add the repository secret ANDROID_SIGNING_PASSWORD (README, Android app), then re-run this workflow."
-            exit 1
+            # Still build (unsigned) so the Android build is checked; nothing is published.
+            echo "::warning title=Signing password missing::Add the repository secret ANDROID_SIGNING_PASSWORD (README, Android app), then re-run this workflow to publish the APK."
+            exit 0
           fi
           if [ ${#PASS} -lt 12 ]; then
             echo "::error title=Signing password too short::ANDROID_SIGNING_PASSWORD needs at least 12 characters."
@@ -121,6 +122,7 @@ jobs:
         run: ./gradlew assembleRelease --no-daemon
 
       - name: Publish release
+        if: env.ANDROID_KEYSTORE_PATH != ''
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -130,3 +132,9 @@ jobs:
             --title "Life Tracker build ${{ github.run_number }}" \
             --notes "Install on your phone: tap life-tracker.apk below, then Install. It updates the app in place and keeps your data."
           echo "::notice title=APK published::https://github.com/${{ github.repository }}/releases/tag/apk-${{ github.run_number }}"
+
+      - name: Not published
+        if: env.ANDROID_KEYSTORE_PATH == ''
+        run: |
+          echo "::error title=APK built but not published::The APK builds fine, but it can only be published once ANDROID_SIGNING_PASSWORD is set (README, Android app)."
+          exit 1
