@@ -50,7 +50,7 @@ export function useBankSync() {
       return
     }
     const [settings, setup, creds] = await Promise.all([getAllSettings(), getBankSetup(), loadCredentials()])
-    if (!settings.finProductId.trim() || !setup || !blzFromIban(setup.iban) || !creds.login) {
+    if (!setup || !blzFromIban(setup.iban) || !creds.login) {
       setState({ phase: 'error', kind: 'setup', message: 'Finish connecting Commerzbank in Finance settings first.' })
       return
     }

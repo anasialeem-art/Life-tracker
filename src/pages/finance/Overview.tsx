@@ -35,7 +35,7 @@ export function Overview({ txs, syncing, onSync, onImport, onOpenActivity, onOpe
   const month = monthOf(today)
   const native = isNativeApp()
   const lastSync = settings?.finLastSyncAt ?? null
-  const connected = !!settings?.finProductId && lastSync !== null
+  const connected = lastSync !== null
 
   const thisMonth = (txs ?? []).filter((t) => t.month === month)
   const spent = spendByCategory(thisMonth)

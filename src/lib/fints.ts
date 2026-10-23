@@ -217,89 +217,107 @@ interface StoredBank {
   holder?: string | null
 }
 
+/** Sent when no registration number is set yet: honestly unregistered, not borrowed from another product. */
+export const UNREGISTERED_PRODUCT = 'UNREGISTERED'
+
 export function createFintsConnector(setup: FintsSetup, ui: TanUi, log: (line: string) => void = () => {}): BankConnector {
+  const registered = setup.productId.trim() !== ''
+  const fetchWith = fetchStatements(setup, registered ? setup.productId.trim() : UNREGISTERED_PRODUCT, ui, log)
   return {
-    async fetch(from: DayKey | null): Promise<BankFetchResult> {
-      const productId = setup.productId.trim()
-      if (!productId) throw new BankError('setup', 'Add your FinTS product registration number in Finance settings first.')
-      const blz = blzFromIban(setup.iban)
-      if (!blz) throw new BankError('setup', 'Add your Commerzbank IBAN (DE…) in Finance settings first.')
-      if (!setup.login || !setup.pin) throw new BankError('setup', 'Add your login number and PIN in Finance settings first.')
-
-      const key = `${blz}|${setup.login}`
-      const stored = await getMeta<StoredBank>('finBank')
-      const known = stored?.key === key && stored.info?.bpd && stored.info?.upd ? stored : null
-
-      let config: FinTSConfig
-      let client: FinTSClient
-      let method: TanMethod | undefined
-
-      if (known) {
-        config = FinTSConfig.fromBankingInformation(productId, PRODUCT_VERSION, known.info, setup.login, setup.pin)
-        client = new FinTSClient(config)
-        method = pickTanMethod(tanMethodsOf(config), setup.tanMethodId)
-        if (method) selectMethod(config, method)
-        log(`Using saved bank parameters; TAN method ${method ? `${method.id} ${method.name}` : 'none'}`)
-      } else {
-        ui.step('Connecting to Commerzbank…')
-        config = FinTSConfig.forFirstTimeUse(productId, PRODUCT_VERSION, COMMERZBANK_URL, blz, setup.login, setup.pin)
-        client = new FinTSClient(config)
-        const first = await client.synchronize()
-        log(`Sync 1: ${bankText(first.bankAnswers)}`)
-        if (!first.success) throw mapBankError(first.bankAnswers)
-        const methods = tanMethodsOf(config)
-        log(`TAN methods offered: ${methods.map((m) => `${m.id} ${m.name}${m.isDecoupled ? ' (app approval)' : ''}`).join(', ') || 'none'}`)
-        method = pickTanMethod(methods, setup.tanMethodId)
-        if (!method) throw new BankError('bank', 'Commerzbank did not offer a usable TAN method for this login. Check that photoTAN is set up.')
-        selectMethod(config, method)
-        log(`Selected TAN method ${method.id} ${method.name}`)
-        ui.step('Signing in…')
-        const second = await withTan(await client.synchronize(), (ref, tan) => client.synchronizeWithTan(ref, tan), method, ui)
-        log(`Sync 2: ${bankText(second.bankAnswers)}`)
-      }
-
-      const accounts = config.bankingInformation.upd?.bankAccounts ?? []
-      const want = normIban(setup.iban)
-      const account: BankAccount | undefined = accounts.find((a) => normIban(a.iban ?? '') === want)
-      if (!account) {
-        throw new BankError('account', 'This IBAN was not found among the accounts Commerzbank lists for your login. Check the IBAN in Finance settings.',
-          accounts.map((a) => a.iban).join(', '))
-      }
-      if (!client.canGetAccountStatements(account)) {
-        throw new BankError('bank', 'Commerzbank does not offer transaction downloads for this account over FinTS.')
-      }
-
-      ui.step(from ? 'Fetching new transactions…' : 'Fetching your transaction history…')
-      // Noon, so the date survives lib-fints' UTC formatting in any time zone.
-      const fromDate = from ? new Date(parseKey(from).setHours(12)) : undefined
-      // MT940 first: the long-established format; CAMT is used when that is all the bank offers.
-      const statementsResp = await withTan(
-        await client.getAccountStatements(account, fromDate, undefined, false),
-        (ref, tan) => client.getAccountStatementsWithTan(ref, tan), method, ui,
-      )
-      log(`Statements: ${bankText(statementsResp.bankAnswers)}`)
-      const statements = statementsResp.statements ?? []
-      const transactions = statementsToRaw(statements)
-      let balance = closingBalance(statements)
-
-      if (!balance && client.canGetAccountBalance(account)) {
-        ui.step('Fetching balance…')
-        const b = await withTan(await client.getAccountBalance(account), (ref, tan) => client.getAccountBalanceWithTan(ref, tan), method, ui)
-        log(`Balance: ${bankText(b.bankAnswers)}`)
-        if (b.balance && typeof b.balance.balance === 'number') {
-          balance = { amount: centsOf(b.balance.balance), day: calendarKey(b.balance.date instanceof Date ? b.balance.date : new Date()) }
+    async fetch(from) {
+      if (!registered) log('No product registration number set; trying without one')
+      try {
+        return await fetchWith(from)
+      } catch (e) {
+        // Without a registration number a refusal is almost always about that; say so plainly.
+        if (!registered && e instanceof BankError && (e.kind === 'bank' || e.kind === 'product')) {
+          throw new BankError('product', 'Commerzbank refused the connection, most likely because the app has no product registration number yet. Add it in Finance settings once you have it. Until then you can import statements.', e.detail || e.message)
         }
+        throw e
       }
-
-      const holder = account.holder1 ?? null
-      await setMeta('finBank', {
-        key, info: config.bankingInformation, holder,
-        tanMethods: tanMethodsOf(config).map((m) => ({ id: m.id, name: m.name, decoupled: m.isDecoupled })),
-        tanMethodId: method?.id ?? null,
-      } satisfies StoredBank)
-      log(`Fetched ${transactions.length} transactions; balance ${balance ? `${balance.amount / 100} on ${balance.day}` : 'not sent'}`)
-      return { transactions, balance, holder }
     },
+  }
+}
+
+function fetchStatements(setup: FintsSetup, productId: string, ui: TanUi, log: (line: string) => void) {
+  return async (from: DayKey | null): Promise<BankFetchResult> => {
+    const blz = blzFromIban(setup.iban)
+    if (!blz) throw new BankError('setup', 'Add your Commerzbank IBAN (DE…) in Finance settings first.')
+    if (!setup.login || !setup.pin) throw new BankError('setup', 'Add your login number and PIN in Finance settings first.')
+
+    const key = `${blz}|${setup.login}`
+    const stored = await getMeta<StoredBank>('finBank')
+    const known = stored?.key === key && stored.info?.bpd && stored.info?.upd ? stored : null
+
+    let config: FinTSConfig
+    let client: FinTSClient
+    let method: TanMethod | undefined
+
+    if (known) {
+      config = FinTSConfig.fromBankingInformation(productId, PRODUCT_VERSION, known.info, setup.login, setup.pin)
+      client = new FinTSClient(config)
+      method = pickTanMethod(tanMethodsOf(config), setup.tanMethodId)
+      if (method) selectMethod(config, method)
+      log(`Using saved bank parameters; TAN method ${method ? `${method.id} ${method.name}` : 'none'}`)
+    } else {
+      ui.step('Connecting to Commerzbank…')
+      config = FinTSConfig.forFirstTimeUse(productId, PRODUCT_VERSION, COMMERZBANK_URL, blz, setup.login, setup.pin)
+      client = new FinTSClient(config)
+      const first = await client.synchronize()
+      log(`Sync 1: ${bankText(first.bankAnswers)}`)
+      if (!first.success) throw mapBankError(first.bankAnswers)
+      const methods = tanMethodsOf(config)
+      log(`TAN methods offered: ${methods.map((m) => `${m.id} ${m.name}${m.isDecoupled ? ' (app approval)' : ''}`).join(', ') || 'none'}`)
+      method = pickTanMethod(methods, setup.tanMethodId)
+      if (!method) throw new BankError('bank', 'Commerzbank did not offer a usable TAN method for this login. Check that photoTAN is set up.')
+      selectMethod(config, method)
+      log(`Selected TAN method ${method.id} ${method.name}`)
+      ui.step('Signing in…')
+      const second = await withTan(await client.synchronize(), (ref, tan) => client.synchronizeWithTan(ref, tan), method, ui)
+      log(`Sync 2: ${bankText(second.bankAnswers)}`)
+    }
+
+    const accounts = config.bankingInformation.upd?.bankAccounts ?? []
+    const want = normIban(setup.iban)
+    const account: BankAccount | undefined = accounts.find((a) => normIban(a.iban ?? '') === want)
+    if (!account) {
+      throw new BankError('account', 'This IBAN was not found among the accounts Commerzbank lists for your login. Check the IBAN in Finance settings.',
+        accounts.map((a) => a.iban).join(', '))
+    }
+    if (!client.canGetAccountStatements(account)) {
+      throw new BankError('bank', 'Commerzbank does not offer transaction downloads for this account over FinTS.')
+    }
+
+    ui.step(from ? 'Fetching new transactions…' : 'Fetching your transaction history…')
+    // Noon, so the date survives lib-fints' UTC formatting in any time zone.
+    const fromDate = from ? new Date(parseKey(from).setHours(12)) : undefined
+    // MT940 first: the long-established format; CAMT is used when that is all the bank offers.
+    const statementsResp = await withTan(
+      await client.getAccountStatements(account, fromDate, undefined, false),
+      (ref, tan) => client.getAccountStatementsWithTan(ref, tan), method, ui,
+    )
+    log(`Statements: ${bankText(statementsResp.bankAnswers)}`)
+    const statements = statementsResp.statements ?? []
+    const transactions = statementsToRaw(statements)
+    let balance = closingBalance(statements)
+
+    if (!balance && client.canGetAccountBalance(account)) {
+      ui.step('Fetching balance…')
+      const b = await withTan(await client.getAccountBalance(account), (ref, tan) => client.getAccountBalanceWithTan(ref, tan), method, ui)
+      log(`Balance: ${bankText(b.bankAnswers)}`)
+      if (b.balance && typeof b.balance.balance === 'number') {
+        balance = { amount: centsOf(b.balance.balance), day: calendarKey(b.balance.date instanceof Date ? b.balance.date : new Date()) }
+      }
+    }
+
+    const holder = account.holder1 ?? null
+    await setMeta('finBank', {
+      key, info: config.bankingInformation, holder,
+      tanMethods: tanMethodsOf(config).map((m) => ({ id: m.id, name: m.name, decoupled: m.isDecoupled })),
+      tanMethodId: method?.id ?? null,
+    } satisfies StoredBank)
+    log(`Fetched ${transactions.length} transactions; balance ${balance ? `${balance.amount / 100} on ${balance.day}` : 'not sent'}`)
+    return { transactions, balance, holder }
   }
 }
 

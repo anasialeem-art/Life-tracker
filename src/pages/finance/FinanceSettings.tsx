@@ -127,7 +127,7 @@ function ConnectionForm({ native, onSaved }: { native: boolean; onSaved: () => v
   const ibanOk = blzFromIban(iban) !== null
   const changed = loaded && (productId.trim() !== (s?.finProductId ?? '') || normIban(iban) !== normIban(loaded.iban) || login.trim() !== loaded.login
     || pin !== '' || savePin !== hasPin)
-  const canSave = native && productId.trim() && ibanOk && login.trim() && (pin || hasPin || !savePin) && changed
+  const canSave = native && ibanOk && login.trim() && (pin || hasPin || !savePin) && changed
 
   const save = async () => {
     if (!loaded) return
@@ -152,7 +152,7 @@ function ConnectionForm({ native, onSaved }: { native: boolean; onSaved: () => v
           Bank details can only be stored in the Android app, in Android's secure storage.
         </p>
       )}
-      <Field label="Product registration number" hint="Your FinTS registration number from the Deutsche Kreditwirtschaft (fints.org). Commerzbank requires it.">
+      <Field label="Product registration number (optional for now)" hint="Your FinTS registration number from the Deutsche Kreditwirtschaft (fints.org). Commerzbank will most likely refuse syncs until it is set.">
         <TextInput value={productId} onChange={(e) => setProductId(e.target.value)} placeholder="e.g. 9FA6681DEC0CF3046BFC2F8A6" autoCapitalize="characters" autoComplete="off" spellCheck={false} />
       </Field>
       <Field label="IBAN of your Girokonto" hint={iban && !ibanOk ? 'Enter a German IBAN (DE + 20 digits)' : undefined}>

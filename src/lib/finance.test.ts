@@ -354,10 +354,25 @@ describe('Commerzbank connector (fake bank)', () => {
     expect(await db.finTx.count()).toBe(0)
   })
 
+  it('tries without a registration number and explains a refusal', async () => {
+    let sent = ''
+    setTransport(async (_url, body) => {
+      sent = atob(body)
+      return msg('DLG1', "HIRMG:2:2+9050::Die Nachricht enthält Fehler.'", "HIRMS:3:2:3+9010::Verarbeitung nicht möglich.'")
+    })
+    const err = await runSync(createFintsConnector({ ...SETUP, productId: '' }, tanUi().ui)).catch((e) => e)
+    expect(sent).toContain('UNREGISTERED')
+    expect(err.kind).toBe('product')
+    expect(err.message).toContain('no product registration number')
+    // A wrong PIN is still reported as a wrong PIN.
+    setTransport(async () => msg('DLG1', "HIRMG:2:2+9050::Fehler.'", "HIRMS:3:2:3+9931::PIN falsch.'"))
+    expect((await runSync(createFintsConnector({ ...SETUP, productId: '' }, tanUi().ui)).catch((e) => e)).kind).toBe('pin')
+  })
+
   it('reports an unreachable bank and missing setup clearly', async () => {
     setTransport(async () => { throw new Error('net::ERR_NAME_NOT_RESOLVED') })
     expect((await runSync(createFintsConnector(SETUP, tanUi().ui)).catch((e) => e)).kind).toBe('unreachable')
-    expect((await runSync(createFintsConnector({ ...SETUP, productId: ' ' }, tanUi().ui)).catch((e) => e)).kind).toBe('setup')
+    expect((await runSync(createFintsConnector({ ...SETUP, iban: 'DE1' }, tanUi().ui)).catch((e) => e)).kind).toBe('setup')
     expect((await runSync(createFintsConnector({ ...SETUP, iban: 'DE89370400440532013999' }, tanUi().ui)).catch((e) => e)).kind).toBe('account')
   })
 })
