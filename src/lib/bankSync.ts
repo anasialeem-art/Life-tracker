@@ -66,38 +66,87 @@ export function validateFetch(r: BankFetchResult): void {
 
 export interface SyncResult { added: number; fetched: number; balance: number | null; at: number }
 
+export type TxSource = NonNullable<FinTx['source']>
+
+const cleanRows = (rows: RawTx[]) => rows.map((t) => ({
+  ...t, payee: normText(t.payee), purpose: normText(t.purpose), payeeIban: normIban(t.payeeIban ?? ''),
+}))
+
+/**
+ * Which rows are new. Same source: the hash of date, amount, payee and purpose.
+ * Across sources (a statement file vs. the bank sync describe the same booking with
+ * different text): a stored row from the other source with the same day and amount
+ * counts as this one, one for one, so two equal coffees stay two.
+ * Must run inside a transaction that covers finTx.
+ */
+async function planRows(rows: RawTx[], ids: string[], source: TxSource) {
+  const stored = await db.finTx.bulkGet(ids)
+  const days = [...new Set(rows.map((r) => r.day))]
+  const other = new Map<string, number>()
+  for (const t of await db.finTx.where('day').anyOf(days).toArray()) {
+    if ((t.source ?? 'bank') === source) continue
+    const k = `${t.day}|${t.amount}`
+    other.set(k, (other.get(k) ?? 0) + 1)
+  }
+  const seen = new Set<string>()
+  const fresh: number[] = []
+  rows.forEach((r, i) => {
+    const k = `${r.day}|${r.amount}`
+    const hit = stored[i]
+    if (hit || seen.has(ids[i])) {
+      // An identical text from the other source also uses up that source's match.
+      if (hit && (hit.source ?? 'bank') !== source && other.get(k)) other.set(k, other.get(k)! - 1)
+      return
+    }
+    if (other.get(k)) {
+      other.set(k, other.get(k)! - 1)
+      return
+    }
+    seen.add(ids[i])
+    fresh.push(i)
+  })
+  return fresh
+}
+
+/**
+ * The one write path for bank data. Adds new rows (never overwrites, so your notes and
+ * categories stay), plus the balance, in a single transaction: all or nothing.
+ */
+export async function commitRows(raw: RawTx[], source: TxSource, extra: { balance?: BankFetchResult['balance']; holder?: string | null; now?: number; dryRun?: boolean } = {}) {
+  const now = extra.now ?? Date.now()
+  const rows = cleanRows(raw)
+  const ids = await txIds(rows)
+  let added = 0
+  await db.transaction('rw', [db.finTx, db.finBalances, db.finRules, db.settings, db.meta], async () => {
+    const fresh = await planRows(rows, ids, source)
+    added = fresh.length
+    if (extra.dryRun) return
+    if (extra.holder) {
+      const bank = (await db.meta.get('finBank'))?.value as Record<string, unknown> | undefined
+      await setMeta('finBank', { ...bank, holder: extra.holder })
+    }
+    const ctx = await loadCategoryContext()
+    const add: FinTx[] = fresh.map((i) => ({
+      ...rows[i], id: ids[i], month: monthOf(rows[i].day), note: '', syncedAt: now, source, ...autoCategory(rows[i], ctx),
+    }))
+    // bulkAdd, not bulkPut: an existing row (with your notes and categories) is never overwritten.
+    if (add.length) await db.finTx.bulkAdd(add)
+    if (extra.balance) {
+      const cur = await db.finBalances.get(extra.balance.day)
+      // A statement file never replaces a balance the bank reported for the same day.
+      if (source === 'bank' || !cur) await db.finBalances.put({ day: extra.balance.day, amount: extra.balance.amount, at: now })
+    }
+    if (source === 'bank') await db.settings.put({ key: 'finLastSyncAt', value: now })
+  })
+  return { added, total: rows.length }
+}
+
 export async function runSync(connector: BankConnector, now = Date.now()): Promise<SyncResult> {
   const from = await syncStartDay()
   const result = await connector.fetch(from)
   validateFetch(result)
-
-  const rows = result.transactions.map((t) => ({
-    ...t, payee: normText(t.payee), purpose: normText(t.purpose), payeeIban: normIban(t.payeeIban ?? ''),
-  }))
-  const ids = await txIds(rows)
-  let added = 0
-
-  await db.transaction('rw', [db.finTx, db.finBalances, db.finRules, db.settings, db.meta], async () => {
-    if (result.holder) {
-      const bank = (await db.meta.get('finBank'))?.value as Record<string, unknown> | undefined
-      await setMeta('finBank', { ...bank, holder: result.holder })
-    }
-    const ctx = await loadCategoryContext()
-    const existing = new Set(await db.finTx.where('id').anyOf(ids).primaryKeys())
-    const fresh: FinTx[] = []
-    rows.forEach((r, i) => {
-      if (existing.has(ids[i])) return
-      existing.add(ids[i])
-      fresh.push({ ...r, id: ids[i], month: monthOf(r.day), note: '', syncedAt: now, ...autoCategory(r, ctx) })
-    })
-    // bulkAdd, not bulkPut: an existing row (with your notes and categories) is never overwritten.
-    if (fresh.length) await db.finTx.bulkAdd(fresh)
-    added = fresh.length
-    if (result.balance) await db.finBalances.put({ day: result.balance.day, amount: result.balance.amount, at: now })
-    await db.settings.put({ key: 'finLastSyncAt', value: now })
-  })
-
-  return { added, fetched: rows.length, balance: result.balance?.amount ?? null, at: now }
+  const { added, total } = await commitRows(result.transactions, 'bank', { balance: result.balance, holder: result.holder, now })
+  return { added, fetched: total, balance: result.balance?.amount ?? null, at: now }
 }
 
 /** Forget the bank's stored parameters (BPD/UPD, system id), e.g. after changing the login. Keeps the holder name. */

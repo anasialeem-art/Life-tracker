@@ -19,6 +19,7 @@ Offline personal tracker for meds, prayer, to-dos, fitness and finance: a PWA, a
   - *Insights*: spending per month for each category and the month-end balance, for 3 / 6 / 12 months or everything.
   - *Subscriptions*: recurring payments found automatically (same payee, similar amount, regular interval) with the monthly total; remove wrong ones.
   - *Activity*: search, filter by month and category, tap to change the category (offers "apply to all similar", which makes a rule) or add a note.
+  - *Import*: the Import button reads statement files: the CSV export from Commerzbank online banking (Umsätze → Export → CSV), most other German banks' CSVs, and MT940 (.sta). It shows how many rows are new before adding them. Works on the website too. PDF statements can't be read.
   - Categories are fixed: Groceries, Food, Subscriptions, Gym, Other, plus Income and Transfer, which never count as spending. Rules (payee/purpose contains …) can be viewed, edited, reordered and deleted.
 
 ## Develop
@@ -89,6 +90,7 @@ cd android && ./gradlew assembleDebug    # app/build/outputs/apk/debug/app-debug
 - **Setup** (Finance settings): product registration number, the Girokonto IBAN (gives the bank code), the login number (Teilnehmernummer) and the PIN. Login and PIN live only in Android secure storage. Switch off **Save PIN** to type it on every sync.
 - **TAN**: the app picks the two-step method Commerzbank offers for your login (preferring photoTAN with app approval), never the single-step 999. While you approve it shows **Approve in the photoTAN app** and checks the bank every few seconds (up to 5 minutes). The method can be changed in Finance settings after the first sync.
 - **What a sync fetches**: everything the bank allows on the first sync (often about 90 days), afterwards from a week before the newest stored transaction. Duplicates are recognised by a hash of date, amount, payee and purpose.
+- **Imports and sync together**: a file and the bank describe the same booking with different text, so across the two sources a stored row with the same day and amount counts as the same transaction (one for one, so two equal coffees stay two). Re-importing a file or syncing after an import adds nothing twice.
 - **Safety**: nothing is written until the bank has answered completely and every row has been checked; then one database transaction only *adds* rows plus the balance. A wrong PIN, TAN timeout, cancelled approval or an unreachable bank changes nothing. Notes and categories you set are never overwritten.
 
 ## Quran text

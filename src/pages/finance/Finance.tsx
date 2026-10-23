@@ -1,11 +1,12 @@
 import { useLiveQuery } from 'dexie-react-hooks'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { db, type FinCategory } from '../../lib/db'
 import { ensureStarterRules } from '../../lib/finance'
 import { navigate } from '../../lib/router'
 import { GearIcon } from '../../components/Icons'
 import { IconButton, TopBar } from '../../components/TopBar'
 import { Segmented, useToast } from '../../components/ui'
+import { ImportSheet, type ImportHandle } from './ImportSheet'
 import { Insights } from './Insights'
 import { Overview } from './Overview'
 import { Subscriptions } from './Subscriptions'
@@ -31,6 +32,7 @@ export function Finance() {
   const txs = useLiveQuery(() => db.finTx.toArray())
   const sync = useBankSync()
   const [toast, showToast] = useToast()
+  const importer = useRef<ImportHandle>(null)
 
   useEffect(() => { ensureStarterRules() }, [])
 
@@ -64,14 +66,15 @@ export function Finance() {
       </div>
       <div key={section} className="animate-page-in">
         {section === 'overview' && (
-          <Overview txs={txs} syncing={sync.state.phase !== 'idle' && sync.state.phase !== 'error'} onSync={() => sync.start()}
+          <Overview txs={txs} syncing={sync.state.phase !== 'idle' && sync.state.phase !== 'error'} onSync={() => sync.start()} onImport={() => importer.current?.pick()}
             onOpenActivity={openActivity} onOpenSubs={() => setSection('subs')} />
         )}
         {section === 'insights' && <Insights txs={txs} />}
         {section === 'subs' && <Subscriptions txs={txs} />}
-        {section === 'activity' && <Transactions txs={txs} filter={filter} onFilter={setFilter} />}
+        {section === 'activity' && <Transactions txs={txs} filter={filter} onFilter={setFilter} onImport={() => importer.current?.pick()} />}
       </div>
       <SyncSheet sync={sync} />
+      <ImportSheet ref={importer} onImported={(n) => showToast(`${n} transaction${n === 1 ? '' : 's'} imported`)} />
       {toast}
     </>
   )

@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { calendarKey } from '../../lib/day'
 import type { FinCategory, FinTx } from '../../lib/db'
 import { ALL_CATEGORIES, CATEGORY_META, formatEUR, monthLabel, monthOf } from '../../lib/finance'
-import { SearchIcon, WalletIcon, XIcon } from '../../components/Icons'
+import { SearchIcon, UploadIcon, WalletIcon, XIcon } from '../../components/Icons'
 import { Button, Card, EmptyState, Page, SectionLabel } from '../../components/ui'
 import { TxRow, dayHeading } from './parts'
 import { TxSheet } from './TxSheet'
@@ -17,7 +17,7 @@ export interface TxFilter {
 const PAGE = 150
 const selectCls = 'h-11 min-w-0 flex-1 rounded-2xl bg-surface px-3 text-[15px] font-semibold shadow-card outline-none'
 
-export function Transactions({ txs, filter, onFilter }: { txs: FinTx[] | undefined; filter: TxFilter; onFilter: (f: TxFilter) => void }) {
+export function Transactions({ txs, filter, onFilter, onImport }: { txs: FinTx[] | undefined; filter: TxFilter; onFilter: (f: TxFilter) => void; onImport: () => void }) {
   const [openTx, setOpenTx] = useState<string | null>(null)
   const [limit, setLimit] = useState(PAGE)
   const today = calendarKey(new Date())
@@ -62,8 +62,9 @@ export function Transactions({ txs, filter, onFilter }: { txs: FinTx[] | undefin
 
       {txs && shown.length === 0 && (
         <Card>
-          <EmptyState icon={<WalletIcon size={26} />} title={txs.length ? 'Nothing matches' : 'No transactions yet'}>
-            {txs.length ? 'Try another month, category or search.' : 'Sync with Commerzbank on the Overview to load your transactions.'}
+          <EmptyState icon={<WalletIcon size={26} />} title={txs.length ? 'Nothing matches' : 'No transactions yet'}
+            action={txs.length ? undefined : <Button small onClick={onImport}><UploadIcon size={18} /> Import statement</Button>}>
+            {txs.length ? 'Try another month, category or search.' : 'Import a CSV statement or sync with Commerzbank on the Overview.'}
           </EmptyState>
         </Card>
       )}

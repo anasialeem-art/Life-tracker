@@ -9,7 +9,7 @@ import {
 import { isNativeApp } from '../../lib/native'
 import { navigate } from '../../lib/router'
 import { useSettings } from '../../lib/settings'
-import { AlertIcon, CheckIcon, ChevronRight, PhoneIcon, SyncIcon, WalletIcon } from '../../components/Icons'
+import { AlertIcon, CheckIcon, ChevronRight, SyncIcon, UploadIcon, WalletIcon } from '../../components/Icons'
 import { Button, Card, EmptyState, Page, SectionLabel } from '../../components/ui'
 import type { OpenActivity } from './Finance'
 import { CategoryBadge, TxRow, timeAgo } from './parts'
@@ -19,10 +19,11 @@ const STATE_COLOR: Record<LimitState, string | null> = {
   none: null, ok: null, near: 'var(--warning)', over: 'var(--danger)', paid: 'var(--success)',
 }
 
-export function Overview({ txs, syncing, onSync, onOpenActivity, onOpenSubs }: {
+export function Overview({ txs, syncing, onSync, onImport, onOpenActivity, onOpenSubs }: {
   txs: FinTx[] | undefined
   syncing: boolean
   onSync: () => void
+  onImport: () => void
   onOpenActivity: OpenActivity
   onOpenSubs: () => void
 }) {
@@ -59,15 +60,19 @@ export function Overview({ txs, syncing, onSync, onOpenActivity, onOpenSubs }: {
           {balance ? formatEUR(balance.amount) : '€ —'}
         </p>
         <p className="relative mt-1.5 text-[14px] text-white/80">
-          {balance ? `Commerzbank · as of ${new Date(`${balance.day}T12:00:00`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}` : 'Not synced yet'}
+          {balance ? `Commerzbank · as of ${new Date(`${balance.day}T12:00:00`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}` : txs?.length ? 'Balance arrives with a bank sync' : 'Not synced yet'}
         </p>
-        <div className="relative mt-4 flex items-center gap-3">
-          <p className="min-w-0 flex-1 text-[13px] text-white/80">
-            {lastSync ? <>Last sync <span className="font-semibold text-white">{timeAgo(lastSync)}</span></> : native ? 'Tap Sync to load your account' : 'Sync runs in the Android app'}
-          </p>
+        <p className="relative mt-4 text-[13px] text-white/80">
+          {lastSync ? <>Last sync <span className="font-semibold text-white">{timeAgo(lastSync)}</span></> : native ? 'Sync with Commerzbank or import a statement' : 'Import a statement · sync is in the Android app'}
+        </p>
+        <div className="relative mt-2.5 flex gap-2">
+          <button type="button" onClick={onImport}
+            className="pressable flex min-h-11 flex-1 items-center justify-center gap-2 rounded-full bg-white/20 px-4 text-[15px] font-semibold text-white backdrop-blur-sm">
+            <UploadIcon size={18} strokeWidth={2.2} /> Import
+          </button>
           {native && (
             <button type="button" onClick={onSync} disabled={syncing}
-              className="pressable flex min-h-10 items-center gap-2 rounded-full bg-white/20 px-4 text-[15px] font-semibold text-white backdrop-blur-sm disabled:opacity-70">
+              className="pressable flex min-h-11 flex-1 items-center justify-center gap-2 rounded-full bg-white px-4 text-[15px] font-semibold text-[#075985] disabled:opacity-70">
               <SyncIcon size={18} strokeWidth={2.2} className={syncing ? 'animate-spin' : ''} /> {syncing ? 'Syncing' : 'Sync'}
             </button>
           )}
@@ -76,8 +81,9 @@ export function Overview({ txs, syncing, onSync, onOpenActivity, onOpenSubs }: {
 
       {!native && !txs?.length && (
         <Card>
-          <EmptyState icon={<PhoneIcon size={26} />} title="Bank sync lives in the Android app">
-            Commerzbank only talks to the installed Android app. Your synced data shows up here once you restore a backup from it.
+          <EmptyState icon={<UploadIcon size={26} />} title="Import your transactions"
+            action={<Button small onClick={onImport}><UploadIcon size={18} /> Import statement</Button>}>
+            In Commerzbank online banking open Umsätze → Export → CSV, then import the file here. Automatic sync works in the Android app.
           </EmptyState>
         </Card>
       )}
@@ -85,7 +91,7 @@ export function Overview({ txs, syncing, onSync, onOpenActivity, onOpenSubs }: {
         <Card>
           <EmptyState icon={<WalletIcon size={26} />} title="Connect Commerzbank"
             action={<Button small onClick={() => navigate('/more/finance/settings')}>Set up</Button>}>
-            Add your product registration number, IBAN and login once. Read-only: the app can never send money.
+            Add your product registration number, IBAN and login once. Read-only: the app can never send money. You can also import a CSV statement any time.
           </EmptyState>
         </Card>
       )}

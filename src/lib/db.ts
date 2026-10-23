@@ -254,6 +254,8 @@ export interface FinTx {
   categorySource: 'rule' | 'auto' | 'manual' | null
   note: string
   syncedAt: number
+  /** Where it came from: the bank sync (default when missing) or a statement file you imported. */
+  source?: 'bank' | 'import'
 }
 
 export interface FinRule {
